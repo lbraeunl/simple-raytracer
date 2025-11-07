@@ -28,7 +28,6 @@ struct Triangle
 struct AABB
 {
     float x_l, x_u, y_l, y_u, z_l, z_u;
-    //glm::vec3 centroid;
     AABB();
     AABB(const std::vector<Triangle>& triangles);
 
@@ -43,4 +42,11 @@ struct BVHNode {
     std::vector<Triangle> triangles;
 
     BVHNode(const std::vector<Triangle>& triangles,int max_leaf_size);
+};
+
+struct HitRecord {
+    float t;
+    glm::vec3 color;
+
+    HitRecord(const float& t, glm::vec3 color);
 };

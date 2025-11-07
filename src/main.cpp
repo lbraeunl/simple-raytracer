@@ -9,7 +9,7 @@
 
 using namespace glm;
 
-BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 5)
+BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
 {
     BVHNode* node = new BVHNode(triangles, maxLeafSize);
 
@@ -17,92 +17,53 @@ BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 5)
 
     int axis = node->box.longest_axis();
 
-    std::sort(node->triangles.begin(), node->triangles.end(), [axis](const Triangle& a, const Triangle& b) {
+    std::vector<Triangle> sortedTriangles = triangles;
+    std::sort(sortedTriangles.begin(), sortedTriangles.end(), [axis](const Triangle& a, const Triangle& b) {
         return a.centroid[axis] < b.centroid[axis];
     });
 
-    size_t mid = node->triangles.size() / 2;
-    std::vector<Triangle> left(node->triangles.begin(), node->triangles.begin() + mid);
-    std::vector<Triangle> right(node->triangles.begin() + mid, node->triangles.end());
+    size_t mid = sortedTriangles.size() / 2;
+    std::vector<Triangle> left(sortedTriangles.begin(), sortedTriangles.begin() + mid);
+    std::vector<Triangle> right(sortedTriangles.begin() + mid, sortedTriangles.end());
 
-    node->left  = buildBVH(left,  maxLeafSize);
+    node->left  = buildBVH(left, maxLeafSize);
     node->right = buildBVH(right, maxLeafSize);
+
+    node->triangles.clear();
+    node->isLeaf = false;
 
     return node;
 }
 
-// bool intersectAABB(const Ray& ray, const AABB& box)
-// {
-//     float tmin = -INFINITY;
-//     float tmax =  INFINITY;
+bool intersectAABB(const Ray& ray, const AABB& box)
+{
+    float t_x0 = (box.x_l - ray.point.x)/(ray.direction.x);
+    float t_x1 = (box.x_u - ray.point.x)/(ray.direction.x);
+    if (t_x0 > t_x1) std::swap(t_x0, t_x1);
 
-//     // X slab
-//     if (fabs(ray.direction.x) > 1e-8f) {
-//         float tx1 = (box.x_l - ray.point.x) / ray.direction.x;
-//         float tx2 = (box.x_u - ray.point.x) / ray.direction.x;
-//         if (tx1 > tx2) std::swap(tx1, tx2);
-//         tmin = std::max(tmin, tx1);
-//         tmax = std::min(tmax, tx2);
-//         if (tmin > tmax) return false;
-//     } else if (ray.point.x < box.x_l || ray.point.x > box.x_u)
-//         return false;
+    float tEnter = t_x0;
+    float tExit  = t_x1;
 
-//     // Y slab
-//     if (fabs(ray.direction.y) > 1e-8f) {
-//         float ty1 = (box.y_l - ray.point.y) / ray.direction.y;
-//         float ty2 = (box.y_u - ray.point.y) / ray.direction.y;
-//         if (ty1 > ty2) std::swap(ty1, ty2);
-//         tmin = std::max(tmin, ty1);
-//         tmax = std::min(tmax, ty2);
-//         if (tmin > tmax) return false;
-//     } else if (ray.point.y < box.y_l || ray.point.y > box.y_u)
-//         return false;
+    float t_y0 = (box.y_l - ray.point.y)/(ray.direction.y);
+    float t_y1 = (box.y_u - ray.point.y)/(ray.direction.y);
+    if (t_y0 > t_y1) std::swap(t_y0, t_y1);
 
-//     // Z slab
-//     if (fabs(ray.direction.z) > 1e-8f) {
-//         float tz1 = (box.z_l - ray.point.z) / ray.direction.z;
-//         float tz2 = (box.z_u - ray.point.z) / ray.direction.z;
-//         if (tz1 > tz2) std::swap(tz1, tz2);
-//         tmin = std::max(tmin, tz1);
-//         tmax = std::min(tmax, tz2);
-//         if (tmin > tmax) return false;
-//     } else if (ray.point.z < box.z_l || ray.point.z > box.z_u)
-//         return false;
+    tEnter = std::max(tEnter, t_y0);
+    tExit  = std::min(tExit,  t_y1);
 
-//     return tmax >= 0.0f;
-// }
-    bool intersectAABB(const Ray& ray, const AABB& box){
-        return true;
-    }
-// bool intersectAABB(const Ray& ray, const AABB& box)
-// {
-//     float t_x0 = (box.x_l - ray.point.x)/(ray.direction.x);
-//     float t_x1 = (box.x_u - ray.point.x)/(ray.direction.x);
-//     if (t_x0 > t_x1) std::swap(t_x0, t_x1);
+    if (tEnter > tExit) return false;
 
-//     float tEnter = t_x0;
-//     float tExit  = t_x1;
+    float t_z0 = (box.z_l - ray.point.z)/(ray.direction.z);
+    float t_z1 = (box.z_u - ray.point.z)/(ray.direction.z);
+    if (t_z0 > t_z1) std::swap(t_z0, t_z1);
 
-//     float t_y0 = (box.y_l - ray.point.y)/(ray.direction.y);
-//     float t_y1 = (box.y_u - ray.point.y)/(ray.direction.y);
-//     if (t_y0 > t_y1) std::swap(t_y0, t_y1);
+    tEnter = std::max(tEnter, t_z0);
+    tExit  = std::min(tExit,  t_z1);
 
-//     tEnter = std::max(tEnter, t_y0);
-//     tExit  = std::min(tExit,  t_y1);
+    if (tEnter > tExit) return false;
 
-//     if (tEnter > tExit) return false;
-
-//     float t_z0 = (box.z_l - ray.point.z)/(ray.direction.z);
-//     float t_z1 = (box.z_u - ray.point.z)/(ray.direction.z);
-//     if (t_z0 > t_z1) std::swap(t_z0, t_z1);
-
-//     tEnter = std::max(tEnter, t_z0);
-//     tExit  = std::min(tExit,  t_z1);
-
-//     if (tEnter > tExit) return false;
-
-//     return tExit >= 0.0f;
-// }
+    return tExit >= 0.0f;
+}
 
 float moeller_trumbore(const Ray& ray, const Triangle& tri)
 {
@@ -208,9 +169,9 @@ std::vector<vec3> get_image_plane(float distance, Ray cam, float size=10.f)
     return {center,v1,v2};
 }
 
-std::vector<Triangle> traverseTree(const BVHNode* root, const Ray& ray)
+HitRecord traverseBVH(const BVHNode* root, const Ray& ray)
 {
-    std::vector<Triangle> hitTriangles;
+    HitRecord best_hit(INFINITY, vec3(0.f));
     std::stack<const BVHNode*> stack;
     stack.push(root);
 
@@ -222,17 +183,21 @@ std::vector<Triangle> traverseTree(const BVHNode* root, const Ray& ray)
             continue;
 
         if (node->isLeaf) {
-            // Collect triangles (or test for intersection directly)
-            hitTriangles.insert(hitTriangles.end(), node->triangles.begin(), node->triangles.end());
+            for (const Triangle& t : node->triangles){
+                float t_hit = moeller_trumbore(ray, t);
+                if (t_hit < best_hit.t && t_hit >= 0.f) 
+                {
+                    best_hit.color = t.color;
+                    best_hit.t = t_hit;
+                }      
+            }
         } else {
-            // Push children (both!) to the stack
             stack.push(node->left);
             stack.push(node->right);
         }
     }
-    return hitTriangles;
+    return best_hit;
 }
-
 
 int main()
 { 
@@ -244,14 +209,13 @@ int main()
     vec3 veci = image_plane[1];
     vec3 vecj = image_plane[2];
 
-
-    uint16_t width = 512;
-    uint16_t height = 512;
+    uint16_t width = 1080;
+    uint16_t height = 1080;
     std::vector<uint8_t> pixels(width * height * 4, 0);
 
     std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
 
-    auto node = buildBVH(triangles);
+    BVHNode* node = buildBVH(triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
 
     for(int i=0;i<width;++i)
@@ -262,21 +226,13 @@ int main()
             vec3 pos = img_point+(veci*float(i))/float(width)+(vecj*float(j))/float(height);
             Ray ray(cam.point, pos);
             
-            std::vector<Triangle> t = traverseTree(node, ray);
+            HitRecord hit = traverseBVH(node, ray);
 
-            float min_t = 999999;
-            for(const Triangle& f : t)
-            {
-                float t = moeller_trumbore(ray, f);
-                if (t > 0.f && t<min_t){
-                    unsigned idx = (j * width + i) * 4;
-                    pixels[idx + 0] = f.color[0];
-                    pixels[idx + 1] = f.color[1];
-                    pixels[idx + 2] = f.color[2];
-                    pixels[idx + 3] = 255;
-                    min_t = t;
-                }
-            }
+            unsigned idx = (j * width + i) * 4;
+            pixels[idx + 0] = hit.color[0];
+            pixels[idx + 1] = hit.color[1];
+            pixels[idx + 2] = hit.color[2];
+            pixels[idx + 3] = 255;
         }
     }
 
