@@ -2,113 +2,308 @@
 #include "tiny_obj_loader.h"
 #include <iostream>
 #include <glm/vec3.hpp>
+#include "Geometry.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+#include <stack>
 
 using namespace glm;
 
-// bool load_from_obj(const char* filename)
-// {
-    
-// }
-
-bool is_there_something(vec3 direction, auto shapes, auto attrib)
+BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 5)
 {
-    for (const auto& shape : shapes) {
-        size_t index_offset = 0;
+    BVHNode* node = new BVHNode(triangles, maxLeafSize);
 
-        for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
-            int fv = shape.mesh.num_face_vertices[f];  // Anzahl Vertices pro Face (meist 3)
+    if (node->isLeaf) return node;
 
-            for (size_t v = 0; v < fv; v++) {
-                // Hole den Index des Vertex
-                tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
+    int axis = node->box.longest_axis();
 
-                // Zugriff auf die eigentlichen Vertexkoordinaten
-                float vx = attrib.vertices[3 * idx.vertex_index + 0];
-                float vy = attrib.vertices[3 * idx.vertex_index + 1];
-                float vz = attrib.vertices[3 * idx.vertex_index + 2];
+    std::sort(node->triangles.begin(), node->triangles.end(), [axis](const Triangle& a, const Triangle& b) {
+        return a.centroid[axis] < b.centroid[axis];
+    });
 
-                std::cout << "Face " << f << ", Vertex " << v << ": "
-                        << vx << ", " << vy << ", " << vz << std::endl;
-            }
+    size_t mid = node->triangles.size() / 2;
+    std::vector<Triangle> left(node->triangles.begin(), node->triangles.begin() + mid);
+    std::vector<Triangle> right(node->triangles.begin() + mid, node->triangles.end());
 
-            index_offset += fv;  // Weiter zum nächsten Face
-        }
-    }
+    node->left  = buildBVH(left,  maxLeafSize);
+    node->right = buildBVH(right, maxLeafSize);
+
+    return node;
 }
 
-int main()
+// bool intersectAABB(const Ray& ray, const AABB& box)
+// {
+//     float tmin = -INFINITY;
+//     float tmax =  INFINITY;
+
+//     // X slab
+//     if (fabs(ray.direction.x) > 1e-8f) {
+//         float tx1 = (box.x_l - ray.point.x) / ray.direction.x;
+//         float tx2 = (box.x_u - ray.point.x) / ray.direction.x;
+//         if (tx1 > tx2) std::swap(tx1, tx2);
+//         tmin = std::max(tmin, tx1);
+//         tmax = std::min(tmax, tx2);
+//         if (tmin > tmax) return false;
+//     } else if (ray.point.x < box.x_l || ray.point.x > box.x_u)
+//         return false;
+
+//     // Y slab
+//     if (fabs(ray.direction.y) > 1e-8f) {
+//         float ty1 = (box.y_l - ray.point.y) / ray.direction.y;
+//         float ty2 = (box.y_u - ray.point.y) / ray.direction.y;
+//         if (ty1 > ty2) std::swap(ty1, ty2);
+//         tmin = std::max(tmin, ty1);
+//         tmax = std::min(tmax, ty2);
+//         if (tmin > tmax) return false;
+//     } else if (ray.point.y < box.y_l || ray.point.y > box.y_u)
+//         return false;
+
+//     // Z slab
+//     if (fabs(ray.direction.z) > 1e-8f) {
+//         float tz1 = (box.z_l - ray.point.z) / ray.direction.z;
+//         float tz2 = (box.z_u - ray.point.z) / ray.direction.z;
+//         if (tz1 > tz2) std::swap(tz1, tz2);
+//         tmin = std::max(tmin, tz1);
+//         tmax = std::min(tmax, tz2);
+//         if (tmin > tmax) return false;
+//     } else if (ray.point.z < box.z_l || ray.point.z > box.z_u)
+//         return false;
+
+//     return tmax >= 0.0f;
+// }
+    bool intersectAABB(const Ray& ray, const AABB& box){
+        return true;
+    }
+// bool intersectAABB(const Ray& ray, const AABB& box)
+// {
+//     float t_x0 = (box.x_l - ray.point.x)/(ray.direction.x);
+//     float t_x1 = (box.x_u - ray.point.x)/(ray.direction.x);
+//     if (t_x0 > t_x1) std::swap(t_x0, t_x1);
+
+//     float tEnter = t_x0;
+//     float tExit  = t_x1;
+
+//     float t_y0 = (box.y_l - ray.point.y)/(ray.direction.y);
+//     float t_y1 = (box.y_u - ray.point.y)/(ray.direction.y);
+//     if (t_y0 > t_y1) std::swap(t_y0, t_y1);
+
+//     tEnter = std::max(tEnter, t_y0);
+//     tExit  = std::min(tExit,  t_y1);
+
+//     if (tEnter > tExit) return false;
+
+//     float t_z0 = (box.z_l - ray.point.z)/(ray.direction.z);
+//     float t_z1 = (box.z_u - ray.point.z)/(ray.direction.z);
+//     if (t_z0 > t_z1) std::swap(t_z0, t_z1);
+
+//     tEnter = std::max(tEnter, t_z0);
+//     tExit  = std::min(tExit,  t_z1);
+
+//     if (tEnter > tExit) return false;
+
+//     return tExit >= 0.0f;
+// }
+
+float moeller_trumbore(const Ray& ray, const Triangle& tri)
 {
+    const float EPSILON = 1e-8f;
+    vec3 edge1 = tri.b - tri.a;
+    vec3 edge2 = tri.c - tri.a;
 
-    vec3 cam = {0.f,-40.f,10.f};
-    vec3 img_point = {-5.f,-30.f,5.f};
-    vec3 veci = {10.f,0.f,0.f};
-    vec3 vecj = {0.f,0.f,10.f};
-    int width = 128;
-    int height = 128;
-    std::vector<std::vector<bool>> grid(height, std::vector<bool>(width, false));
+    vec3 h = glm::cross(ray.direction, edge2);
+    float a = glm::dot(edge1, h);
+
+    if (a > -EPSILON && a < EPSILON)
+        return -1.0f; // Ray is parallel to the triangle
+
+    float f = 1.0f / a;
+    vec3 s = ray.point - tri.a;
+    float u = f * glm::dot(s, h);
+
+    if (u < 0.0f || u > 1.0f)
+        return -1.0f;
+
+    vec3 q = glm::cross(s, edge1);
+    float v = f * glm::dot(ray.direction, q);
+
+    if (v < 0.0f || u + v > 1.0f)
+        return -1.0f;
+
+    float t = f * glm::dot(edge2, q);
+
+    if (t > EPSILON) // ray intersection
+        return t;
+
+    return -1.0f;
+}
+
+std::vector<Triangle> load_object(std::string filename, std::string directory="/home/lukas/simple-raytracer")
+{
     
-
-    //attrib will contain the vertex arrays of the file
 	tinyobj::attrib_t attrib;
-    //shapes contains the info for each separate object in the file
 	std::vector<tinyobj::shape_t> shapes;
-    //materials contains the information about the material of each shape, but we won't use it.
     std::vector<tinyobj::material_t> materials;
 
-    //error and warning output from the load function
 	std::string warn;
 	std::string err;
-
-    //load the OBJ file
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "./tinker.obj", nullptr);
-
-    // for (size_t i = 0; i < attrib.vertices.size(); i += 3) {
-    //     float x = attrib.vertices[i + 0];
-    //     float y = attrib.vertices[i + 1];
-    //     float z = attrib.vertices[i + 2];
-
-    //     std::cout << "Vertex " << (i / 3) << ": "
-    //             << x << ", " << y << ", " << z << std::endl;
-    // }
-
     
+    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename.c_str(),directory.c_str());
 
-
-
-    //make sure to output the warnings to the console, in case there are issues with the file
-	if (!warn.empty()) {
+    if (!warn.empty()) {
 		std::cout << "WARN: " << warn << std::endl;
 	}
-    //if we have any error, print it to the console, and break the mesh loading.
-    //This happens if the file can't be found or is malformed
+    
 	if (!err.empty()) {
 		std::cerr << err << std::endl;
-		return false;
+		return {};
 	}
 
-    for(int i=0;i<width;++i) 
+    std::vector<Triangle> triangles;
+    size_t total_faces = 0;
+
+    for (const auto& shape : shapes) {
+        total_faces += shape.mesh.num_face_vertices.size();
+    }
+    triangles.reserve(total_faces);
+
+    for (const auto& shape : shapes) 
     {
+        for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) 
+        {
+            if (shape.mesh.num_face_vertices[f] != 3) {
+                std::cout << "Warning:" << filename << " contains a non-triangular shape that is skipped." << std::endl;
+                continue;
+            }
+
+            tinyobj::index_t idx0 = shape.mesh.indices[3*f+0];
+            tinyobj::index_t idx1 = shape.mesh.indices[3*f+1];
+            tinyobj::index_t idx2 = shape.mesh.indices[3*f+2];
+            int mat_id = shape.mesh.material_ids[f];
+
+
+            vec3 v0(attrib.vertices[3*idx0.vertex_index+0], attrib.vertices[3*idx0.vertex_index+1], attrib.vertices[3*idx0.vertex_index+2]);
+            vec3 v1(attrib.vertices[3*idx1.vertex_index+0], attrib.vertices[3*idx1.vertex_index+1], attrib.vertices[3*idx1.vertex_index+2]);
+            vec3 v2(attrib.vertices[3*idx2.vertex_index+0], attrib.vertices[3*idx2.vertex_index+1], attrib.vertices[3*idx2.vertex_index+2]);
+
+
+            vec3 color(
+                uint8_t(materials[mat_id].diffuse[0]*255),
+                uint8_t(materials[mat_id].diffuse[1]*255),
+                uint8_t(materials[mat_id].diffuse[2]*255)
+                );
+
+            triangles.emplace_back(v0, v1, v2, color);
+        }
+    }
+
+    return triangles;
+}
+
+std::vector<vec3> get_image_plane(float distance, Ray cam, float size=10.f)
+{
+    vec3 center = cam.at(distance);
+    vec3 v1 = normalize(cross(cam.direction,{0.f,0.f,1.f}))*size;
+    vec3 v2 = normalize(cross(cam.direction,v1))*size;
+    center = center - 0.5f*v1 - 0.5f*v2;
+    return {center,v1,v2};
+}
+
+std::vector<Triangle> traverseTree(const BVHNode* root, const Ray& ray)
+{
+    std::vector<Triangle> hitTriangles;
+    std::stack<const BVHNode*> stack;
+    stack.push(root);
+
+    while (!stack.empty()) {
+        const BVHNode* node = stack.top();
+        stack.pop();
+
+        if (!intersectAABB(ray, node->box))
+            continue;
+
+        if (node->isLeaf) {
+            // Collect triangles (or test for intersection directly)
+            hitTriangles.insert(hitTriangles.end(), node->triangles.begin(), node->triangles.end());
+        } else {
+            // Push children (both!) to the stack
+            stack.push(node->left);
+            stack.push(node->right);
+        }
+    }
+    return hitTriangles;
+}
+
+
+int main()
+{ 
+    Ray cam({-100.f,-40.f,40.f},{0.f,0.f,10.f});
+    float distance = 5.f;
+    
+    std::vector<vec3> image_plane = get_image_plane(distance,cam);
+    vec3 img_point = image_plane[0];
+    vec3 veci = image_plane[1];
+    vec3 vecj = image_plane[2];
+
+
+    uint16_t width = 512;
+    uint16_t height = 512;
+    std::vector<uint8_t> pixels(width * height * 4, 0);
+
+    std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
+
+    auto node = buildBVH(triangles);
+    std::cout << "Building is finished! Starting Rendering..." << std::endl;
+
+    for(int i=0;i<width;++i)
+    {
+        std::cout <<"\r"<< (float(i)/width)*100 << "%";
         for(int j=0;j<height;++j) 
         {
             vec3 pos = img_point+(veci*float(i))/float(width)+(vecj*float(j))/float(height);
-            vec3 dir = pos-cam;
+            Ray ray(cam.point, pos);
+            
+            std::vector<Triangle> t = traverseTree(node, ray);
+
+            float min_t = 999999;
+            for(const Triangle& f : t)
+            {
+                float t = moeller_trumbore(ray, f);
+                if (t > 0.f && t<min_t){
+                    unsigned idx = (j * width + i) * 4;
+                    pixels[idx + 0] = f.color[0];
+                    pixels[idx + 1] = f.color[1];
+                    pixels[idx + 2] = f.color[2];
+                    pixels[idx + 3] = 255;
+                    min_t = t;
+                }
+            }
         }
     }
 
-    // auto window = sf::RenderWindow(sf::VideoMode({1920u, 1080u}), "CMake SFML Project");
-    // window.setFramerateLimit(144);
+    
+    auto window = sf::RenderWindow(sf::VideoMode({width, height}), "RaytracerPOG");
+    window.setFramerateLimit(60);
+    
 
-    // while (window.isOpen())
-    // {
-    //     while (const std::optional event = window.pollEvent())
-    //     {
-    //         if (event->is<sf::Event::Closed>())
-    //         {
-    //             window.close();
-    //         }
-    //     }
+    sf::Texture texture(sf::Vector2u(width, height));
+    texture.update(pixels.data());
 
-    //     window.clear();
-    //     window.display();
-    // }
+    sf::Sprite sprite(texture);
+
+
+    while (window.isOpen())
+    {
+        while (const std::optional event = window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+            {
+                window.close();
+            }
+        }
+        
+
+        window.clear();
+        window.draw(sprite);
+        window.display();
+    }
 }
