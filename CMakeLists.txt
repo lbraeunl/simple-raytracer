@@ -18,7 +18,7 @@ FetchContent_MakeAvailable(SFML)
 add_subdirectory(external/tinyobjloader)
 
 # Executable
-add_executable(main src/main.cpp)
+add_executable(main src/main.cpp src/Geometry.cpp)
 target_compile_features(main PRIVATE cxx_std_17)
 
 # GLM
@@ -26,3 +26,6 @@ target_include_directories(main PRIVATE external/glm)
 
 # Link libraries
 target_link_libraries(main PRIVATE SFML::Graphics tinyobjloader)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
