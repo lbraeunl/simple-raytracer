@@ -26,11 +26,13 @@ struct Triangle
 
 struct AABB
 {
-    float x_l, x_u, y_l, y_u, z_l, z_u;
+    glm::vec3 l;
+    glm::vec3 u;
     AABB();
     AABB(const std::vector<Triangle>& triangles);
 
     uint8_t longest_axis() const;
+    float surface_area() const;
 };
 
 struct BVHNode {

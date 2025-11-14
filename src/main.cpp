@@ -12,7 +12,7 @@
 
 using namespace glm;
 
-constexpr bool HEATMAP = true;
+constexpr bool HEATMAP = false;
 #define LOG(code) \
     do { if constexpr (HEATMAP) { code; } } while(0)
 struct HeatMap {
@@ -42,7 +42,7 @@ std::vector<uint8_t> generateHeatmap(const std::vector<uint8_t>& pixels) {
     return heatmap;
 }
 
-BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
+BVHNode* buildBVH_CM(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
 {
     BVHNode* node = new BVHNode(triangles, maxLeafSize);
 
@@ -59,8 +59,8 @@ BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
     std::vector<Triangle> left(sortedTriangles.begin(), sortedTriangles.begin() + mid);
     std::vector<Triangle> right(sortedTriangles.begin() + mid, sortedTriangles.end());
 
-    node->left  = buildBVH(left, maxLeafSize);
-    node->right = buildBVH(right, maxLeafSize);
+    node->left  = buildBVH_CM(left, maxLeafSize);
+    node->right = buildBVH_CM(right, maxLeafSize);
 
     node->triangles.clear();
     node->isLeaf = false;
@@ -68,17 +68,49 @@ BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
     return node;
 }
 
+// BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
+// {
+//     BVHNode* node = new BVHNode(triangles, maxLeafSize);
+
+//     if (node->isLeaf) return node;
+
+//     int axis = node->box.longest_axis();
+
+//     std::vector<Triangle> sortedTriangles = triangles;
+//     std::sort(sortedTriangles.begin(), sortedTriangles.end(), [axis](const Triangle& a, const Triangle& b) {
+//         return a.centroid[axis] < b.centroid[axis];
+//     });
+
+//     std::vector<BVHNode> buckets(nBuckets);
+
+//     for(Triangle t : node->triangles)
+//     {
+//         node->box
+//            t.centroid[axis]
+//     }
+
+    
+
+
+
+// }
+
+
 bool intersectAABB(const Ray& ray, const AABB& box)
 {
-    float t_x0 = (box.x_l - ray.point.x)/(ray.direction.x);
-    float t_x1 = (box.x_u - ray.point.x)/(ray.direction.x);
+    
+    
+    
+    
+    float t_x0 = (box.l[0] - ray.point.x)/(ray.direction.x);
+    float t_x1 = (box.u[0] - ray.point.x)/(ray.direction.x);
     if (t_x0 > t_x1) std::swap(t_x0, t_x1);
 
     float tEnter = t_x0;
     float tExit  = t_x1;
 
-    float t_y0 = (box.y_l - ray.point.y)/(ray.direction.y);
-    float t_y1 = (box.y_u - ray.point.y)/(ray.direction.y);
+    float t_y0 = (box.l[1] - ray.point.y)/(ray.direction.y);
+    float t_y1 = (box.u[1] - ray.point.y)/(ray.direction.y);
     if (t_y0 > t_y1) std::swap(t_y0, t_y1);
 
     tEnter = std::max(tEnter, t_y0);
@@ -86,8 +118,8 @@ bool intersectAABB(const Ray& ray, const AABB& box)
 
     if (tEnter > tExit) return false;
 
-    float t_z0 = (box.z_l - ray.point.z)/(ray.direction.z);
-    float t_z1 = (box.z_u - ray.point.z)/(ray.direction.z);
+    float t_z0 = (box.l[2] - ray.point.z)/(ray.direction.z);
+    float t_z1 = (box.u[2] - ray.point.z)/(ray.direction.z);
     if (t_z0 > t_z1) std::swap(t_z0, t_z1);
 
     tEnter = std::max(tEnter, t_z0);
@@ -246,9 +278,30 @@ inline float reinhard(float x)
     return x / (1.0f + x);
 }
 
+inline float aces(float v)
+{
+    float a = v * (v + 0.0245786) - 0.000090537;
+    float b = v * (0.983729 * v + 0.4329510) + 0.238081;
+    return a/b;
+}
+
+std::vector<uint8> tone_mapping(const std::vector<float>& float_pixels, float yamma)
+{
+    std::vector<uint8> pixels((float_pixels.size()*4)/3);
+    for(size_t idx=0;idx<pixels.size()/4;idx++)
+    {
+        for(int c=0;c<3;++c){
+            uint8 v = uint8(std::pow(reinhard(float_pixels[idx*3 + c]),yamma)*255); 
+            pixels[idx*4 + c] = v;
+        }
+        pixels[idx*4 + 3] = 255;
+    }
+    return pixels;
+}
+
 int main()
 { 
-    Ray cam({-100.f,-40.f,40.f},{0.f,0.f,10.f});
+    Ray cam({100.f,40.f,40.f},{0.f,0.f,10.f});
     float distance = 5.f;
     uint16_t width = 1080;
     uint16_t height = 720;
@@ -256,20 +309,20 @@ int main()
     vec3 img_point = image_plane[0];
     vec3 veci = image_plane[1];
     vec3 vecj = image_plane[2];
-    std::vector<uint8_t> pixels(width * height * 4, 0);
-    heatMap.heatpixels.reserve(pixels.size()/4);
+    std::vector<float> float_pixels(width * height * 3, 0);
+    heatMap.heatpixels.reserve(float_pixels.size()/3);
 
-    LightSource point_light({-200.f,-300.f,300.f},{1.f,1.0f,1.0f});
+    LightSource point_light({-2000.f,-1000.f,3000.f},{1.f,1.0f,1.0f});
     vec3 ambient_light = {1.0,1.0,1.0};
-    float alpha = 2.0;
+    float alpha = 4;
     float beta = 0.5;
     float gamma = 0.1;
-    float m = 2.;
+    float m = 10;
 
     std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
     addFloor(triangles);
 
-    BVHNode* node = buildBVH(triangles);
+    BVHNode* node = buildBVH_CM(triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -279,7 +332,7 @@ int main()
         {
             vec3 pos = img_point+(veci*float(i))/float(width)+(vecj*float(j))/float(height);
             Ray ray(cam.point, pos);
-            unsigned idx = (j * width + i) * 4;
+            unsigned idx = (j * width + i) * 3;
             
             HitRecord hit = traverseBVH(node, ray, false);
             LOG(heatMap.heatpixels.push_back(heatMap.intersects));
@@ -296,14 +349,14 @@ int main()
                 }
 
                 for(int c=0;c<3;++c){
-                    float c1 = hit.triangle->color[c]*reinhard(alpha*point_light.color[c]*intensity+beta*ambient_light[c]);
-                    float c2 = 1.0f*reinhard(gamma*point_light.color[c]*intensity*std::pow(dot(-ray.direction,v),m));
-                    pixels[idx + c] = uint8_t(std::min(1.0f,c1+c2)*255);
+                    float_pixels[idx + c] = hit.triangle->color[c]*(alpha*point_light.color[c]*intensity+beta*ambient_light[c])
+                    +(gamma*point_light.color[c]*intensity*std::pow(dot(-ray.direction,v),m));                   
                 }
             }
-            pixels[idx + 3] = 255;
         }
     }
+
+    auto pixels = tone_mapping(float_pixels,1.7);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
