@@ -4,3 +4,6 @@
 [submodule "external/glm"]
 	path = external/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "external/tinycolormap"]
+	path = external/tinycolormap
+	url = https://github.com/yuki-koyama/tinycolormap.git
