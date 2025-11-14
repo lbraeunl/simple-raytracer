@@ -9,10 +9,11 @@
 #include <stack>
 #include <chrono>
 #include <tinycolormap.hpp>
+#include <optional>
 
 using namespace glm;
 
-constexpr bool HEATMAP = false;
+constexpr bool HEATMAP = true;
 #define LOG(code) \
     do { if constexpr (HEATMAP) { code; } } while(0)
 struct HeatMap {
@@ -68,40 +69,76 @@ BVHNode* buildBVH_CM(const std::vector<Triangle>& triangles, int maxLeafSize = 4
     return node;
 }
 
-// BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
-// {
-//     BVHNode* node = new BVHNode(triangles, maxLeafSize);
-
-//     if (node->isLeaf) return node;
-
-//     int axis = node->box.longest_axis();
-
-//     std::vector<Triangle> sortedTriangles = triangles;
-//     std::sort(sortedTriangles.begin(), sortedTriangles.end(), [axis](const Triangle& a, const Triangle& b) {
-//         return a.centroid[axis] < b.centroid[axis];
-//     });
-
-//     std::vector<BVHNode> buckets(nBuckets);
-
-//     for(Triangle t : node->triangles)
-//     {
-//         node->box
-//            t.centroid[axis]
-//     }
-
+BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
+{   
+    BVHNode* node = new BVHNode(triangles,4);
     
+    if (node->triangles.size()<=4) return node;
 
+    int axis = node->box.longest_axis();
+    std::vector<Triangle> sortedTriangles = triangles;
+    std::sort(sortedTriangles.begin(), sortedTriangles.end(), [axis](const Triangle& a, const Triangle& b) {
+        return a.centroid[axis] < b.centroid[axis];
+    });
 
+    float cmin = sortedTriangles[0].centroid[axis];
+    float cmax = sortedTriangles.back().centroid[axis];
+    float extent = cmax - cmin;
+    if (extent < 1e-8f) extent = 1e-8f;
 
-// }
+    std::vector<Bucket> buckets(nBuckets);
+    for(Triangle t : sortedTriangles)
+    {
+        int b = nBuckets*(t.centroid[axis]-cmin) / extent;
+        if (b == nBuckets) b = nBuckets - 1;
+        buckets[b].count++;
+    }
+
+    int c = 0;
+    for(Bucket &b : buckets)
+    {   
+        b.box.update_box(sortedTriangles,c,c+b.count);
+        c +=b.count;
+    }
+
+    float minCost = INFINITY;
+    int count = 0;
+    int best_split = 0;
+    for(int splits = 1;splits<buckets.size();++splits)
+    {
+        AABB left_box = buckets[0].box;
+        for (int i = 1;i<splits;++i)
+        {
+            left_box = AABB(left_box,buckets[i].box);
+        }
+        AABB right_box = buckets[splits].box;
+        for (int i = splits+1;i<buckets.size();++i)
+        {
+            right_box = AABB(right_box,buckets[i].box);
+        }
+
+        float cost = count*left_box.surface_area()+(sortedTriangles.size()-count)*right_box.surface_area();
+        count += buckets[splits-1].count;
+        if(cost < minCost){
+            minCost = cost;
+            best_split = count;
+        }
+    }
+
+    if (extent==0) best_split = sortedTriangles.size()/2;
+
+    std::vector<Triangle> left(sortedTriangles.begin(), sortedTriangles.begin() + best_split);
+    std::vector<Triangle> right(sortedTriangles.begin() + best_split, sortedTriangles.end());
+
+    node->left  = buildBVH_SAH(left);
+    node->right = buildBVH_SAH(right);
+
+    return node;
+}
 
 
 bool intersectAABB(const Ray& ray, const AABB& box)
 {
-    
-    
-    
-    
     float t_x0 = (box.l[0] - ray.point.x)/(ray.direction.x);
     float t_x1 = (box.u[0] - ray.point.x)/(ray.direction.x);
     if (t_x0 > t_x1) std::swap(t_x0, t_x1);
@@ -322,7 +359,7 @@ int main()
     std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
     addFloor(triangles);
 
-    BVHNode* node = buildBVH_CM(triangles);
+    BVHNode* node = buildBVH_SAH(triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
