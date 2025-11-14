@@ -27,16 +27,13 @@ glm::vec3 Ray::at(float t) const {
 // Triangle
 
 Triangle::Triangle()
-    : a(0.0f), b(1.0f, 0.0f, 0.0f), c(0.0f, 1.0f, 0.0f), color(0,0,0), centroid(0,0,0) {}
+    : a(0.0f), b(1.0f, 0.0f, 0.0f), c(0.0f, 1.0f, 0.0f), color(0,0,0), centroid(0,0,0), normal(0,0,0) {}
 
 Triangle::Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color)
     : a(v1), b(v2), c(v3), color(color) {
         centroid = (a + b + c) / 3.0f;
+        normal = glm::normalize(glm::cross(b - a, c - a));
     }
-
-glm::vec3 Triangle::normal() const {
-    return glm::normalize(glm::cross(b - a, c - a));
-}
 
 
 // AABB
@@ -80,4 +77,9 @@ BVHNode::BVHNode(const std::vector<Triangle>& triangles, int max_leaf_size):tria
 
 // HitRecord
 
-HitRecord::HitRecord(const float& t, glm::vec3 color):t(t),color(color){}
+HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle){}
+
+
+//LightSource
+
+LightSource::LightSource(const glm::vec3& position, const glm::vec3& color): position(position), color(color){}

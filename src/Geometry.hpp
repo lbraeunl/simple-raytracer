@@ -18,11 +18,10 @@ struct Triangle
     glm::vec3 a, b, c;
     glm::vec3 color;
     glm::vec3 centroid;
+    glm::vec3 normal;
 
     Triangle();
     Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
-
-    glm::vec3 normal() const;
 };
 
 struct AABB
@@ -46,7 +45,14 @@ struct BVHNode {
 
 struct HitRecord {
     float t;
+    const Triangle* triangle;
+
+    HitRecord(const float& t, Triangle* triangle);
+};
+
+struct LightSource {
+    glm::vec3 position;
     glm::vec3 color;
 
-    HitRecord(const float& t, glm::vec3 color);
+    LightSource(const glm::vec3& position, const glm::vec3& color);
 };

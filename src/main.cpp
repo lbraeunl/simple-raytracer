@@ -5,9 +5,42 @@
 #include "Geometry.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>
+#include <algorithm>
 #include <stack>
+#include <chrono>
+#include <tinycolormap.hpp>
 
 using namespace glm;
+
+constexpr bool HEATMAP = true;
+#define LOG(code) \
+    do { if constexpr (HEATMAP) { code; } } while(0)
+struct HeatMap {
+    uint8_t intersects;
+    std::vector<uint8_t> heatpixels = {};
+};
+inline thread_local HeatMap heatMap;
+
+
+std::vector<uint8_t> generateHeatmap(const std::vector<uint8_t>& pixels) {
+    std::vector<uint8_t> heatmap;
+    heatmap.reserve(pixels.size()*4);
+
+    uint8_t minPixel = *std::min_element(pixels.begin(), pixels.end());
+    uint8_t maxPixel = *std::max_element(pixels.begin(), pixels.end());
+    float range = (maxPixel > minPixel) ? float(maxPixel - minPixel) : 1.0f;
+
+    for (uint8_t val : pixels) {
+        float normalized = (float(val) - float(minPixel)) / range;
+        tinycolormap::Color c = tinycolormap::GetColor(normalized, tinycolormap::ColormapType::Turbo);
+
+        heatmap.push_back(static_cast<uint8_t>(c.r() * 255.0f));
+        heatmap.push_back(static_cast<uint8_t>(c.g() * 255.0f));
+        heatmap.push_back(static_cast<uint8_t>(c.b() * 255.0f));
+        heatmap.push_back(255);
+    }
+    return heatmap;
+}
 
 BVHNode* buildBVH(const std::vector<Triangle>& triangles, int maxLeafSize = 4)
 {
@@ -148,9 +181,9 @@ std::vector<Triangle> load_object(std::string filename, std::string directory="/
 
 
             vec3 color(
-                uint8_t(materials[mat_id].diffuse[0]*255),
-                uint8_t(materials[mat_id].diffuse[1]*255),
-                uint8_t(materials[mat_id].diffuse[2]*255)
+                float(materials[mat_id].diffuse[0]),
+                float(materials[mat_id].diffuse[1]),
+                float(materials[mat_id].diffuse[2])
                 );
 
             triangles.emplace_back(v0, v1, v2, color);
@@ -160,24 +193,32 @@ std::vector<Triangle> load_object(std::string filename, std::string directory="/
     return triangles;
 }
 
-std::vector<vec3> get_image_plane(float distance, Ray cam, float size=10.f)
+std::vector<vec3> get_image_plane(float distance, Ray cam, uint16_t width,uint16_t height)
 {
     vec3 center = cam.at(distance);
-    vec3 v1 = normalize(cross(cam.direction,{0.f,0.f,1.f}))*size;
-    vec3 v2 = normalize(cross(cam.direction,v1))*size;
+    vec3 v1 = normalize(cross(cam.direction,{0.f,0.f,1.f}))*float(width)/100.0f;
+    vec3 v2 = normalize(cross(cam.direction,v1))*float(height)/100.0f;
     center = center - 0.5f*v1 - 0.5f*v2;
     return {center,v1,v2};
 }
 
-HitRecord traverseBVH(const BVHNode* root, const Ray& ray)
+void addFloor(std::vector<Triangle>& triangles, uint16 size=400)
 {
-    HitRecord best_hit(INFINITY, vec3(0.f));
+    triangles.push_back(Triangle({size*0.5f,size*(-0.5f),0.f},{size*0.5f, size*0.5f,0.f},{size*-0.5f, size*-0.5f,0.f},{0.4f,0.4f,0.4f}));
+    triangles.push_back(Triangle({size*0.5f, size*0.5f,0.f},{size*(-0.5f),size*0.5f,0.f},{size*-0.5f, size*-0.5f,0.f},{0.4f,0.4f,0.4f}));
+}
+
+HitRecord traverseBVH(const BVHNode* root, const Ray& ray, bool shadow_ray)
+{
+    HitRecord best_hit(INFINITY, nullptr);
     std::stack<const BVHNode*> stack;
     stack.push(root);
+    LOG(heatMap.intersects = 0;);
 
     while (!stack.empty()) {
         const BVHNode* node = stack.top();
         stack.pop();
+        LOG(heatMap.intersects += 1;);
 
         if (!intersectAABB(ray, node->box))
             continue;
@@ -187,8 +228,9 @@ HitRecord traverseBVH(const BVHNode* root, const Ray& ray)
                 float t_hit = moeller_trumbore(ray, t);
                 if (t_hit < best_hit.t && t_hit >= 0.f) 
                 {
-                    best_hit.color = t.color;
+                    best_hit.triangle = &t;
                     best_hit.t = t_hit;
+                    if (shadow_ray) return best_hit;
                 }      
             }
         } else {
@@ -199,50 +241,81 @@ HitRecord traverseBVH(const BVHNode* root, const Ray& ray)
     return best_hit;
 }
 
+inline float reinhard(float x)
+{
+    return x / (1.0f + x);
+}
+
 int main()
 { 
     Ray cam({-100.f,-40.f,40.f},{0.f,0.f,10.f});
     float distance = 5.f;
-    
-    std::vector<vec3> image_plane = get_image_plane(distance,cam);
+    uint16_t width = 1080;
+    uint16_t height = 720;
+    std::vector<vec3> image_plane = get_image_plane(distance,cam,width,height);
     vec3 img_point = image_plane[0];
     vec3 veci = image_plane[1];
     vec3 vecj = image_plane[2];
-
-    uint16_t width = 1080;
-    uint16_t height = 1080;
     std::vector<uint8_t> pixels(width * height * 4, 0);
+    heatMap.heatpixels.reserve(pixels.size()/4);
+
+    LightSource point_light({-200.f,-300.f,300.f},{1.f,1.0f,1.0f});
+    vec3 ambient_light = {1.0,1.0,1.0};
+    float alpha = 2.0;
+    float beta = 0.5;
+    float gamma = 0.1;
+    float m = 2.;
 
     std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
+    addFloor(triangles);
 
     BVHNode* node = buildBVH(triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
 
-    for(int i=0;i<width;++i)
+    for(int j=0;j<height;++j)
     {
-        std::cout <<"\r"<< (float(i)/width)*100 << "%";
-        for(int j=0;j<height;++j) 
+        for(int i=0;i<width;++i) 
         {
             vec3 pos = img_point+(veci*float(i))/float(width)+(vecj*float(j))/float(height);
             Ray ray(cam.point, pos);
-            
-            HitRecord hit = traverseBVH(node, ray);
-
             unsigned idx = (j * width + i) * 4;
-            pixels[idx + 0] = hit.color[0];
-            pixels[idx + 1] = hit.color[1];
-            pixels[idx + 2] = hit.color[2];
+            
+            HitRecord hit = traverseBVH(node, ray, false);
+            LOG(heatMap.heatpixels.push_back(heatMap.intersects));
+            if(hit.t!=INFINITY)
+            {
+                Ray shadow_ray(ray.at(hit.t)+hit.triangle->normal*0.0005f,point_light.position);
+                HitRecord shadow_hit = traverseBVH(node, shadow_ray, true);
+
+                float intensity = 0.f;
+                vec3 v(0.f);
+                if(shadow_hit.t==INFINITY) {
+                    intensity = std::max(0.0f,dot(shadow_ray.direction, hit.triangle->normal));
+                    v = shadow_ray.direction - 2*dot(hit.triangle->normal,-shadow_ray.direction)*hit.triangle->normal;
+                }
+
+                for(int c=0;c<3;++c){
+                    float c1 = hit.triangle->color[c]*reinhard(alpha*point_light.color[c]*intensity+beta*ambient_light[c]);
+                    float c2 = 1.0f*reinhard(gamma*point_light.color[c]*intensity*std::pow(dot(-ray.direction,v),m));
+                    pixels[idx + c] = uint8_t(std::min(1.0f,c1+c2)*255);
+                }
+            }
             pixels[idx + 3] = 255;
         }
     }
 
-    
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Total render time: " << elapsed.count() << " seconds\n";
+
     auto window = sf::RenderWindow(sf::VideoMode({width, height}), "RaytracerPOG");
     window.setFramerateLimit(60);
     
 
     sf::Texture texture(sf::Vector2u(width, height));
-    texture.update(pixels.data());
+    LOG(texture.update(generateHeatmap(heatMap.heatpixels).data()););
+    if (HEATMAP==false) texture.update(pixels.data());
 
     sf::Sprite sprite(texture);
 
@@ -257,7 +330,6 @@ int main()
             }
         }
         
-
         window.clear();
         window.draw(sprite);
         window.display();
