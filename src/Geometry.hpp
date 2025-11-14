@@ -30,10 +30,18 @@ struct AABB
     glm::vec3 u;
     AABB();
     AABB(const std::vector<Triangle>& triangles);
+    AABB(const AABB b1, const AABB b2);
 
     uint8_t longest_axis() const;
     float surface_area() const;
+    void update_box(const std::vector<Triangle>& triangles,int start,int end);
 };
+
+struct Bucket {
+    int count = 0;
+    AABB box;
+};
+
 
 struct BVHNode {
     AABB box;
@@ -43,6 +51,8 @@ struct BVHNode {
     std::vector<Triangle> triangles;
 
     BVHNode(const std::vector<Triangle>& triangles,int max_leaf_size);
+    BVHNode(const std::vector<Triangle>& triangles,AABB box);
+    BVHNode();
 };
 
 struct HitRecord {

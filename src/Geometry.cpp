@@ -41,26 +41,38 @@ Triangle::Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3
 AABB::AABB()
     : l(0.0f,0.f,0.f), u(0.f,0.f,0.f) {}
 
+AABB::AABB(const std::vector<Triangle>& triangles)
+    {
+        update_box(triangles,0,triangles.size());
+    };
+
+AABB::AABB(const AABB b1, const AABB b2)
+{
+    l = glm::min(b1.l,b2.l);
+    u = glm::max(b1.u,b2.u);
+}
+
 float AABB::surface_area() const
 {
     return (u[0]-l[0])*(u[1]-l[1])+(u[0]-l[0])*(u[2]-l[2])+(u[1]-l[1])*(u[2]-l[2]);
 }
 
-AABB::AABB(const std::vector<Triangle>& triangles)
-    {
-        l = {INFINITY,INFINITY,INFINITY};
-        u = {-INFINITY,-INFINITY,-INFINITY};
-        for (const Triangle& t :triangles)
+void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,int end)
+{
+    l = {INFINITY,INFINITY,INFINITY};
+    u = {-INFINITY,-INFINITY,-INFINITY};
+    for (int i = start;i<end;++i)
+    {   
+        const Triangle& t = sorted_triangles[i];
+        glm::vec3 min = glm::min(t.a,t.b,t.c);
+        glm::vec3 max = glm::max(t.a,t.b,t.c);
+        for(int i=0;i<3;++i) 
         {
-            glm::vec3 min = glm::min(t.a,t.b,t.c);
-            glm::vec3 max = glm::max(t.a,t.b,t.c);
-            for(int i=0;i<3;++i) 
-            {
-                if(min[i]<l[i]) l[i] = min[i];
-                if(max[i]>u[i]) u[i] = max[i];
-            }
+            if(min[i]<l[i]) l[i] = min[i];
+            if(max[i]>u[i]) u[i] = max[i];
         }
-    };
+    }  
+}
 
 uint8_t AABB::longest_axis() const
 {
@@ -72,6 +84,11 @@ uint8_t AABB::longest_axis() const
 
 BVHNode::BVHNode(const std::vector<Triangle>& triangles, int max_leaf_size):triangles(triangles), box(AABB(triangles)) {
     isLeaf = triangles.size()<= max_leaf_size;
+}
+
+BVHNode::BVHNode(const std::vector<Triangle>& triangles,AABB box):box(box),triangles(triangles) {}
+
+BVHNode::BVHNode(): box(AABB()) {
 }
 
 
