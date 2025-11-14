@@ -39,32 +39,32 @@ Triangle::Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3
 // AABB
 
 AABB::AABB()
-    : x_l(0.0f), x_u(0.0f), y_l(0.0f), y_u(0.0f), z_l(0.0f),z_u(0.0f) {}
+    : l(0.0f,0.f,0.f), u(0.f,0.f,0.f) {}
+
+float AABB::surface_area() const
+{
+    return (u[0]-l[0])*(u[1]-l[1])+(u[0]-l[0])*(u[2]-l[2])+(u[1]-l[1])*(u[2]-l[2]);
+}
 
 AABB::AABB(const std::vector<Triangle>& triangles)
     {
-        x_l = INFINITY;
-        y_l = INFINITY;
-        z_l = INFINITY;
-        x_u = -INFINITY;
-        y_u = -INFINITY;
-        z_u = -INFINITY;
+        l = {INFINITY,INFINITY,INFINITY};
+        u = {-INFINITY,-INFINITY,-INFINITY};
         for (const Triangle& t :triangles)
         {
             glm::vec3 min = glm::min(t.a,t.b,t.c);
-            if (min.x<x_l) x_l = min.x;
-            if (min.y<y_l) y_l = min.y;
-            if (min.z<z_l) z_l = min.z;
             glm::vec3 max = glm::max(t.a,t.b,t.c);
-            if (max.x>x_u) x_u = max.x;
-            if (max.y>y_u) y_u = max.y;
-            if (max.z>z_u) z_u = max.z;
+            for(int i=0;i<3;++i) 
+            {
+                if(min[i]<l[i]) l[i] = min[i];
+                if(max[i]>u[i]) u[i] = max[i];
+            }
         }
     };
 
 uint8_t AABB::longest_axis() const
 {
-    return argmax(glm::vec3(x_u-x_l,y_u-y_l,z_u-z_l));
+    return argmax(glm::vec3(u-l));
 }
 
 
