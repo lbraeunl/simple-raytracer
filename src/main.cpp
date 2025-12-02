@@ -4,16 +4,19 @@
 #include <glm/vec3.hpp>
 #include "Geometry.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
+#define STB_IMAGE_IMPLEMENTATION
 #include <glm/gtx/norm.hpp>
 #include <algorithm>
 #include <stack>
 #include <chrono>
 #include <tinycolormap.hpp>
 #include <optional>
+#include "Model.hpp"
+#include "Scene.hpp"
 
 using namespace glm;
 
-constexpr bool HEATMAP = true;
+constexpr bool HEATMAP = false;
 #define LOG(code) \
     do { if constexpr (HEATMAP) { code; } } while(0)
 struct HeatMap {
@@ -64,7 +67,6 @@ BVHNode* buildBVH_CM(const std::vector<Triangle>& triangles, int maxLeafSize = 4
     node->right = buildBVH_CM(right, maxLeafSize);
 
     node->triangles.clear();
-    node->isLeaf = false;
 
     return node;
 }
@@ -73,7 +75,7 @@ BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
 {   
     BVHNode* node = new BVHNode(triangles,4);
     
-    if (node->triangles.size()<=4) return node;
+    if (node->isLeaf) return node;
 
     int axis = node->box.longest_axis();
     std::vector<Triangle> sortedTriangles = triangles;
@@ -85,47 +87,49 @@ BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
     float cmax = sortedTriangles.back().centroid[axis];
     float extent = cmax - cmin;
     if (extent < 1e-8f) extent = 1e-8f;
-
-    std::vector<Bucket> buckets(nBuckets);
-    for(Triangle t : sortedTriangles)
-    {
-        int b = nBuckets*(t.centroid[axis]-cmin) / extent;
-        if (b == nBuckets) b = nBuckets - 1;
-        buckets[b].count++;
-    }
-
-    int c = 0;
-    for(Bucket &b : buckets)
-    {   
-        b.box.update_box(sortedTriangles,c,c+b.count);
-        c +=b.count;
-    }
-
-    float minCost = INFINITY;
-    int count = 0;
     int best_split = 0;
-    for(int splits = 1;splits<buckets.size();++splits)
-    {
-        AABB left_box = buckets[0].box;
-        for (int i = 1;i<splits;++i)
+    if (extent==0){
+        best_split = sortedTriangles.size()/2;
+    }
+    else{
+        std::vector<Bucket> buckets(nBuckets);
+        for(Triangle t : sortedTriangles)
         {
-            left_box = AABB(left_box,buckets[i].box);
-        }
-        AABB right_box = buckets[splits].box;
-        for (int i = splits+1;i<buckets.size();++i)
-        {
-            right_box = AABB(right_box,buckets[i].box);
+            int b = nBuckets*(t.centroid[axis]-cmin) / extent;
+            if (b == nBuckets) b = nBuckets - 1;
+            buckets[b].count++;
         }
 
-        float cost = count*left_box.surface_area()+(sortedTriangles.size()-count)*right_box.surface_area();
-        count += buckets[splits-1].count;
-        if(cost < minCost){
-            minCost = cost;
-            best_split = count;
+        int c = 0;
+        for(Bucket &b : buckets)
+        {   
+            b.box.update_box(sortedTriangles,c,c+b.count);
+            c +=b.count;
+        }
+
+        float minCost = INFINITY;
+        int count = 0;
+        for(int splits = 1;splits<buckets.size();++splits)
+        {
+            AABB left_box = buckets[0].box;
+            for (int i = 1;i<splits;++i)
+            {
+                left_box = AABB(left_box,buckets[i].box);
+            }
+            AABB right_box = buckets[splits].box;
+            for (int i = splits+1;i<buckets.size();++i)
+            {
+                right_box = AABB(right_box,buckets[i].box);
+            }
+            float cost = count*left_box.surface_area()+(sortedTriangles.size()-count)*right_box.surface_area();
+
+            count += buckets[splits-1].count;
+            if(cost < minCost){
+                minCost = cost;
+                best_split = count;
+            }
         }
     }
-
-    if (extent==0) best_split = sortedTriangles.size()/2;
 
     std::vector<Triangle> left(sortedTriangles.begin(), sortedTriangles.begin() + best_split);
     std::vector<Triangle> right(sortedTriangles.begin() + best_split, sortedTriangles.end());
@@ -135,7 +139,6 @@ BVHNode* buildBVH_SAH(const std::vector<Triangle>& triangles, int nBuckets=12)
 
     return node;
 }
-
 
 bool intersectAABB(const Ray& ray, const AABB& box)
 {
@@ -167,11 +170,11 @@ bool intersectAABB(const Ray& ray, const AABB& box)
     return tExit >= 0.0f;
 }
 
-float moeller_trumbore(const Ray& ray, const Triangle& tri)
+float moeller_trumbore(const Ray& ray, const Triangle& tri, float& u, float& v)
 {
     const float EPSILON = 1e-8f;
-    vec3 edge1 = tri.b - tri.a;
-    vec3 edge2 = tri.c - tri.a;
+    vec3 edge1 = tri.v[1] - tri.v[0];
+    vec3 edge2 = tri.v[2] - tri.v[0];
 
     vec3 h = glm::cross(ray.direction, edge2);
     float a = glm::dot(edge1, h);
@@ -180,14 +183,14 @@ float moeller_trumbore(const Ray& ray, const Triangle& tri)
         return -1.0f; // Ray is parallel to the triangle
 
     float f = 1.0f / a;
-    vec3 s = ray.point - tri.a;
-    float u = f * glm::dot(s, h);
+    vec3 s = ray.point - tri.v[0];
+    u = f * glm::dot(s, h);
 
     if (u < 0.0f || u > 1.0f)
         return -1.0f;
 
     vec3 q = glm::cross(s, edge1);
-    float v = f * glm::dot(ray.direction, q);
+    v = f * glm::dot(ray.direction, q);
 
     if (v < 0.0f || u + v > 1.0f)
         return -1.0f;
@@ -200,68 +203,6 @@ float moeller_trumbore(const Ray& ray, const Triangle& tri)
     return -1.0f;
 }
 
-std::vector<Triangle> load_object(std::string filename, std::string directory="/home/lukas/simple-raytracer")
-{
-    
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-	std::string warn;
-	std::string err;
-    
-    tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename.c_str(),directory.c_str());
-
-    if (!warn.empty()) {
-		std::cout << "WARN: " << warn << std::endl;
-	}
-    
-	if (!err.empty()) {
-		std::cerr << err << std::endl;
-		return {};
-	}
-
-    std::vector<Triangle> triangles;
-    size_t total_faces = 0;
-
-    for (const auto& shape : shapes) {
-        total_faces += shape.mesh.num_face_vertices.size();
-    }
-    triangles.reserve(total_faces);
-
-    for (const auto& shape : shapes) 
-    {
-        for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) 
-        {
-            if (shape.mesh.num_face_vertices[f] != 3) {
-                std::cout << "Warning:" << filename << " contains a non-triangular shape that is skipped." << std::endl;
-                continue;
-            }
-
-            tinyobj::index_t idx0 = shape.mesh.indices[3*f+0];
-            tinyobj::index_t idx1 = shape.mesh.indices[3*f+1];
-            tinyobj::index_t idx2 = shape.mesh.indices[3*f+2];
-            int mat_id = shape.mesh.material_ids[f];
-
-
-            vec3 v0(attrib.vertices[3*idx0.vertex_index+0], attrib.vertices[3*idx0.vertex_index+1], attrib.vertices[3*idx0.vertex_index+2]);
-            vec3 v1(attrib.vertices[3*idx1.vertex_index+0], attrib.vertices[3*idx1.vertex_index+1], attrib.vertices[3*idx1.vertex_index+2]);
-            vec3 v2(attrib.vertices[3*idx2.vertex_index+0], attrib.vertices[3*idx2.vertex_index+1], attrib.vertices[3*idx2.vertex_index+2]);
-
-
-            vec3 color(
-                float(materials[mat_id].diffuse[0]),
-                float(materials[mat_id].diffuse[1]),
-                float(materials[mat_id].diffuse[2])
-                );
-
-            triangles.emplace_back(v0, v1, v2, color);
-        }
-    }
-
-    return triangles;
-}
-
 std::vector<vec3> get_image_plane(float distance, Ray cam, uint16_t width,uint16_t height)
 {
     vec3 center = cam.at(distance);
@@ -271,15 +212,10 @@ std::vector<vec3> get_image_plane(float distance, Ray cam, uint16_t width,uint16
     return {center,v1,v2};
 }
 
-void addFloor(std::vector<Triangle>& triangles, uint16 size=400)
-{
-    triangles.push_back(Triangle({size*0.5f,size*(-0.5f),0.f},{size*0.5f, size*0.5f,0.f},{size*-0.5f, size*-0.5f,0.f},{0.4f,0.4f,0.4f}));
-    triangles.push_back(Triangle({size*0.5f, size*0.5f,0.f},{size*(-0.5f),size*0.5f,0.f},{size*-0.5f, size*-0.5f,0.f},{0.4f,0.4f,0.4f}));
-}
-
 HitRecord traverseBVH(const BVHNode* root, const Ray& ray, bool shadow_ray)
 {
     HitRecord best_hit(INFINITY, nullptr);
+    float u,v = -1.f;
     std::stack<const BVHNode*> stack;
     stack.push(root);
     LOG(heatMap.intersects = 0;);
@@ -294,13 +230,15 @@ HitRecord traverseBVH(const BVHNode* root, const Ray& ray, bool shadow_ray)
 
         if (node->isLeaf) {
             for (const Triangle& t : node->triangles){
-                float t_hit = moeller_trumbore(ray, t);
+                float t_hit = moeller_trumbore(ray, t,u,v);
                 if (t_hit < best_hit.t && t_hit >= 0.f) 
                 {
                     best_hit.triangle = &t;
                     best_hit.t = t_hit;
+                    best_hit.u = u;
+                    best_hit.v = v;
                     if (shadow_ray) return best_hit;
-                }      
+                }
             }
         } else {
             stack.push(node->left);
@@ -338,7 +276,7 @@ std::vector<uint8> tone_mapping(const std::vector<float>& float_pixels, float ya
 
 int main()
 { 
-    Ray cam({100.f,40.f,40.f},{0.f,0.f,10.f});
+    Ray cam({30.f,40.f,10.f},{0.f,-15.f,5.f});
     float distance = 5.f;
     uint16_t width = 1080;
     uint16_t height = 720;
@@ -349,23 +287,27 @@ int main()
     std::vector<float> float_pixels(width * height * 3, 0);
     heatMap.heatpixels.reserve(float_pixels.size()/3);
 
-    LightSource point_light({-2000.f,-1000.f,3000.f},{1.f,1.0f,1.0f});
+    LightSource point_light({2000.f,1000.f,1000.f},{1.f,1.0f,1.0f});
     vec3 ambient_light = {1.0,1.0,1.0};
     float alpha = 4;
-    float beta = 0.5;
-    float gamma = 0.1;
+    float beta = 1;
+    float gamma = 0.001;
     float m = 10;
 
-    std::vector<Triangle> triangles = load_object("/home/lukas/simple-raytracer/tinker.obj");
-    addFloor(triangles);
+    Model scene = Model();
+    scene.add_floor({0.4,0.4,0.4},5000);
+    scene.load_object_from_file("/home/lukas/simple-raytracer/scene/","trees9",true);
+    //scene.load_object_from_file("/home/lukas/simple-raytracer/scene/","plane");
+    
+    std::cout << "Model is loaded! (" << scene.triangles.size() << " triangles) Starting BVH Building..." << std::endl;
 
-    BVHNode* node = buildBVH_SAH(triangles);
+    BVHNode* node = buildBVH_SAH(scene.triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
     for(int j=0;j<height;++j)
     {
-        for(int i=0;i<width;++i) 
+        for(int i=0;i<width;++i)
         {
             vec3 pos = img_point+(veci*float(i))/float(width)+(vecj*float(j))/float(height);
             Ray ray(cam.point, pos);
@@ -380,20 +322,38 @@ int main()
 
                 float intensity = 0.f;
                 vec3 v(0.f);
+                vec3 color_diffuse(0.f);
                 if(shadow_hit.t==INFINITY) {
                     intensity = std::max(0.0f,dot(shadow_ray.direction, hit.triangle->normal));
                     v = shadow_ray.direction - 2*dot(hit.triangle->normal,-shadow_ray.direction)*hit.triangle->normal;
                 }
 
+                int tex_id = scene.materials[hit.triangle->mat_id].diffuseTex;
+                if(tex_id >=0)
+                {
+                    vec2 uv_values = hit.u*hit.triangle->uv[0] + hit.v*hit.triangle->uv[1] + (1-hit.u-hit.v) * hit.triangle->uv[2];
+                    Texture tex = scene.textures[tex_id];
+
+                    int x = clamp(int(uv_values.x * (tex.width  - 1)), 0, tex.width  - 1);
+                    int y = clamp(int(uv_values.y * (tex.height - 1)), 0, tex.height - 1);
+                    int tex_idx = (y * tex.width + x) * tex.channels;
+
+                    color_diffuse = {tex.data[tex_idx + 0],tex.data[tex_idx + 1],tex.data[tex_idx + 2]};
+                }
+                else
+                {
+                    color_diffuse = scene.materials[hit.triangle->mat_id].diffuseColor;
+                }
+                
                 for(int c=0;c<3;++c){
-                    float_pixels[idx + c] = hit.triangle->color[c]*(alpha*point_light.color[c]*intensity+beta*ambient_light[c])
+                    float_pixels[idx + c] = color_diffuse[c]*(alpha*point_light.color[c]*intensity+beta*ambient_light[c])
                     +(gamma*point_light.color[c]*intensity*std::pow(dot(-ray.direction,v),m));                   
                 }
             }
         }
     }
 
-    auto pixels = tone_mapping(float_pixels,1.7);
+    auto pixels = tone_mapping(float_pixels,1.6);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;

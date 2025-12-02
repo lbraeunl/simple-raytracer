@@ -2,6 +2,7 @@
 #include "Geometry.hpp"
 #include <glm/gtx/norm.hpp>
 #include <glm/ext/scalar_common.hpp>
+#include "stb_image.h"
 
 //Miscellaneous
 
@@ -27,13 +28,49 @@ glm::vec3 Ray::at(float t) const {
 // Triangle
 
 Triangle::Triangle()
-    : a(0.0f), b(1.0f, 0.0f, 0.0f), c(0.0f, 1.0f, 0.0f), color(0,0,0), centroid(0,0,0), normal(0,0,0) {}
+    : centroid(0.f), normal(0.f), mat_id(-1) {}
 
-Triangle::Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color)
-    : a(v1), b(v2), c(v3), color(color) {
-        centroid = (a + b + c) / 3.0f;
-        normal = glm::normalize(glm::cross(b - a, c - a));
+Triangle::Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], int mat_id)
+{
+    for(int i=0;i<3;++i)
+    {
+        v[i] = vertices[i];
+        uv[i] = uvs[i];
     }
+    update();
+    mat_id = mat_id;
+}
+
+Triangle::Triangle(glm::vec3 a,glm::vec3 b,glm::vec3 c,int mat_id)
+{
+    v[0]=a;
+    v[1]=b;
+    v[2]=c;
+    update();
+    mat_id = mat_id;
+}
+
+void Triangle::update()
+{
+    centroid = (v[0] + v[1] + v[2]) / 3.0f;
+    normal = glm::normalize(glm::cross(v[1] - v[0], v[2] - v[0]));
+}
+
+void Triangle::yz_swap()
+{   
+    for(int i=0;i<3;++i)
+    {
+        std::swap(v[i][1],v[i][2]);
+    }
+}
+
+void Triangle::print() const
+{
+    std::cout << "vertice1:" << v[0].x << "," << v[0].y << "," << v[0].z << std::endl;
+    std::cout << "vertice2:" << v[1].x << "," << v[1].y << "," << v[1].z << std::endl;
+    std::cout << "vertice3:" << v[2].x << "," << v[2].y << "," << v[2].z << std::endl;
+    std::cout << "normal:" << normal.x << "," << normal.y << "," << normal.z << std::endl;
+}
 
 
 // AABB
@@ -64,8 +101,8 @@ void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,in
     for (int i = start;i<end;++i)
     {   
         const Triangle& t = sorted_triangles[i];
-        glm::vec3 min = glm::min(t.a,t.b,t.c);
-        glm::vec3 max = glm::max(t.a,t.b,t.c);
+        glm::vec3 min = glm::min(t.v[0],t.v[1],t.v[2]);
+        glm::vec3 max = glm::max(t.v[0],t.v[1],t.v[2]);
         for(int i=0;i<3;++i) 
         {
             if(min[i]<l[i]) l[i] = min[i];
@@ -94,9 +131,7 @@ BVHNode::BVHNode(): box(AABB()) {
 
 // HitRecord
 
-HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle){}
+HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle), u(-1.f), v(-1.f) {}
 
 
-//LightSource
-
-LightSource::LightSource(const glm::vec3& position, const glm::vec3& color): position(position), color(color){}
+// Image Plane

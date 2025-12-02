@@ -15,13 +15,21 @@ struct Ray
 
 struct Triangle
 {
-    glm::vec3 a, b, c;
-    glm::vec3 color;
+    glm::vec3 v[3];
+    glm::vec2 uv[3];
     glm::vec3 centroid;
     glm::vec3 normal;
+    int mat_id;
 
     Triangle();
-    Triangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
+    Triangle(glm::vec3 a,glm::vec3 b,glm::vec3 c,int mat_id);
+    Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], int mat_id);
+
+    void update();
+
+    void yz_swap();
+
+    void print() const;
 };
 
 struct AABB
@@ -57,14 +65,14 @@ struct BVHNode {
 
 struct HitRecord {
     float t;
+    float u,v;
     const Triangle* triangle;
 
     HitRecord(const float& t, Triangle* triangle);
 };
 
-struct LightSource {
-    glm::vec3 position;
-    glm::vec3 color;
-
-    LightSource(const glm::vec3& position, const glm::vec3& color);
+struct Rectangle {
+    glm::vec3 origin;
+    glm::vec3 w;
+    glm::vec3 h;
 };

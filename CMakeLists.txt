@@ -14,18 +14,17 @@ FetchContent_Declare(SFML
     SYSTEM)
 FetchContent_MakeAvailable(SFML)
 
-# tinyobjloader
-add_subdirectory(external/tinyobjloader extenal/tinycolormap)
+add_subdirectory(external/tinyobjloader)
+add_subdirectory(external/yaml-cpp)
 
 # Executable
-add_executable(main src/main.cpp src/Geometry.cpp)
+add_executable(main src/main.cpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp)
 target_compile_features(main PRIVATE cxx_std_17)
 
-# GLM
-target_include_directories(main PRIVATE external/glm external/tinycolormap/include)
+target_include_directories(main PRIVATE external/glm external/tinycolormap/include external/stb)
 
 # Link libraries
-target_link_libraries(main PRIVATE SFML::Graphics tinyobjloader)
+target_link_libraries(main PRIVATE SFML::Graphics tinyobjloader yaml-cpp)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
