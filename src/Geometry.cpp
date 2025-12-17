@@ -56,20 +56,48 @@ void Triangle::update()
     normal = glm::normalize(glm::cross(v[1] - v[0], v[2] - v[0]));
 }
 
-void Triangle::yz_swap()
-{   
-    for(int i=0;i<3;++i)
-    {
-        std::swap(v[i][1],v[i][2]);
-    }
-}
-
 void Triangle::print() const
 {
-    std::cout << "vertice1:" << v[0].x << "," << v[0].y << "," << v[0].z << std::endl;
-    std::cout << "vertice2:" << v[1].x << "," << v[1].y << "," << v[1].z << std::endl;
-    std::cout << "vertice3:" << v[2].x << "," << v[2].y << "," << v[2].z << std::endl;
+    std::cout << "vertex 1:" << v[0].x << "," << v[0].y << "," << v[0].z << std::endl;
+    std::cout << "vertex 2:" << v[1].x << "," << v[1].y << "," << v[1].z << std::endl;
+    std::cout << "vertex 3:" << v[2].x << "," << v[2].y << "," << v[2].z << std::endl;
     std::cout << "normal:" << normal.x << "," << normal.y << "," << normal.z << std::endl;
+}
+
+bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
+{
+    const float EPSILON = 1e-8f;
+    glm::vec3 edge1 = v[1] - v[0];
+    glm::vec3 edge2 = v[2] - v[0];
+
+    glm::vec3 h = glm::cross(ray.direction, edge2);
+    float a = glm::dot(edge1, h);
+
+    if (a > -EPSILON && a < EPSILON)
+        return false;
+
+    float f = 1.0f / a;
+    glm::vec3 s = ray.point - v[0];
+    hit.u = f * glm::dot(s, h);
+
+    if (hit.u < 0.0f || hit.u > 1.0f)
+        return false;
+
+    glm::vec3 q = glm::cross(s, edge1);
+    hit.v = f * glm::dot(ray.direction, q);
+
+    if (hit.v < 0.0f || hit.u + hit.v > 1.0f)
+        return false;
+
+    hit.t = f * glm::dot(edge2, q);
+
+    if (hit.t <= EPSILON)
+        return false;
+
+    //hit.position = ray.point + hit.t * ray.direction;
+    //float w = 1.0f - hit.u - hit.v;
+    //hit.normal = glm::normalize(w * n[0] + hit.u * n[1] + hit.v * n[2])
+    return -1.0f;
 }
 
 
@@ -99,16 +127,20 @@ void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,in
     l = {INFINITY,INFINITY,INFINITY};
     u = {-INFINITY,-INFINITY,-INFINITY};
     for (int i = start;i<end;++i)
-    {   
-        const Triangle& t = sorted_triangles[i];
-        glm::vec3 min = glm::min(t.v[0],t.v[1],t.v[2]);
-        glm::vec3 max = glm::max(t.v[0],t.v[1],t.v[2]);
-        for(int i=0;i<3;++i) 
-        {
-            if(min[i]<l[i]) l[i] = min[i];
-            if(max[i]>u[i]) u[i] = max[i];
-        }
+    {         
+        expand(sorted_triangles[i]);
     }  
+}
+
+void AABB::expand(Triangle t)
+{
+    glm::vec3 min = glm::min(t.v[0],t.v[1],t.v[2]);
+    glm::vec3 max = glm::max(t.v[0],t.v[1],t.v[2]);
+    for(int i=0;i<3;++i)
+    {
+        if(min[i]<l[i]) l[i] = min[i];
+        if(max[i]>u[i]) u[i] = max[i];
+    }
 }
 
 uint8_t AABB::longest_axis() const
@@ -116,22 +148,37 @@ uint8_t AABB::longest_axis() const
     return argmax(glm::vec3(u-l));
 }
 
+bool AABB::box_intersect(const Ray& ray) const
+{
+    float t_x0 = (l[0] - ray.point.x)/(ray.direction.x);
+    float t_x1 = (u[0] - ray.point.x)/(ray.direction.x);
+    if (t_x0 > t_x1) std::swap(t_x0, t_x1);
 
-// BVHNode
+    float tEnter = t_x0;
+    float tExit  = t_x1;
 
-BVHNode::BVHNode(const std::vector<Triangle>& triangles, int max_leaf_size):triangles(triangles), box(AABB(triangles)) {
-    isLeaf = triangles.size()<= max_leaf_size;
-}
+    float t_y0 = (l[1] - ray.point.y)/(ray.direction.y);
+    float t_y1 = (u[1] - ray.point.y)/(ray.direction.y);
+    if (t_y0 > t_y1) std::swap(t_y0, t_y1);
 
-BVHNode::BVHNode(const std::vector<Triangle>& triangles,AABB box):box(box),triangles(triangles) {}
+    tEnter = std::max(tEnter, t_y0);
+    tExit  = std::min(tExit,  t_y1);
 
-BVHNode::BVHNode(): box(AABB()) {
+    if (tEnter > tExit) return false;
+
+    float t_z0 = (l[2] - ray.point.z)/(ray.direction.z);
+    float t_z1 = (u[2] - ray.point.z)/(ray.direction.z);
+    if (t_z0 > t_z1) std::swap(t_z0, t_z1);
+
+    tEnter = std::max(tEnter, t_z0);
+    tExit  = std::min(tExit,  t_z1);
+
+    if (tEnter > tExit) return false;
+
+    return tExit >= 0.0f;
 }
 
 
 // HitRecord
 
 HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle), u(-1.f), v(-1.f) {}
-
-
-// Image Plane

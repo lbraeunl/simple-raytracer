@@ -3,14 +3,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
-Object::Object(const std::string& model_name,const glm::mat4& transform, const auto& models):transform(transform)
+Object::Object(const std::string& model_name,const glm::mat4& transform, const std::vector<Model>& models):transform(transform)
 {
-    model = &models.at(model_name);
+    for(const Model& m : models)
+    {
+        if (m.name == model_name) model = &m;
+    }
 }
 
 
 LightSource::LightSource(const glm::vec3& position, const glm::vec3& color): position(position), color(color){}
 
+
+Camera::Camera() : position(0.0f, 0.0f, 0.0f), forward(1.0f, 0.0f, 0.0f), up(0.0f, 1.0f, 0.0f), fov(60.0f), resolution(glm::vec2({1080,720})) {}
 
 Camera::Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels): position(position), forward(forward), up(up), fov(fov)
 {
@@ -34,17 +39,16 @@ void Camera::build_image_plane(float distance_to_camera)
     image_plane.origin = position + forward*distance_to_camera - 0.5f*image_plane.h - 0.5f*image_plane.w;
 }
 
-Scene::Scene(const auto& models, const std::string& filename)
+Scene::Scene(const std::vector<Model>& models, const std::string& filename)
 {
     setup_scene(models, filename);
 }
 
 
-void Scene::setup_scene( const auto& models, const std::string& filename)
+void Scene::setup_scene(const std::vector<Model>& models, const std::string& filename)
 {
     YAML::Node file = YAML::LoadFile(filename);
 
-    //Camera
     const auto& camNode = file["camera"];
     camera = Camera(
         glm::vec3(camNode["position"][0].as<float>(), camNode["position"][1].as<float>(), camNode["position"][2].as<float>()),
@@ -55,7 +59,6 @@ void Scene::setup_scene( const auto& models, const std::string& filename)
         camNode["resolution"][1].as<int>()
     );
 
-    //Lights
     for (const auto& lightNode : file["lights"]) 
     {
         glm::vec3 pos(lightNode["position"][0].as<float>(),lightNode["position"][1].as<float>(),lightNode["position"][2].as<float>());
@@ -63,16 +66,19 @@ void Scene::setup_scene( const auto& models, const std::string& filename)
         lights.emplace_back(pos, color);
     }
 
-    //Objects
     for (const auto& objNode : file["objects"]) 
     {
         glm::mat4 transform(1.0f);
-        if (objNode["scale"]) {
+
+        if (objNode["scale"]) 
+        {
             auto s = objNode["scale"];
             glm::vec3 scale(s[0].as<float>(), s[1].as<float>(), s[2].as<float>());
             transform = glm::scale(transform, scale);
         }
-        if (objNode["rotate"]) {
+
+        if (objNode["rotate"]) 
+        {
             auto r = objNode["rotate"];
             glm::vec3 rotDeg(r[0].as<float>(), r[1].as<float>(), r[2].as<float>());
             glm::vec3 rot = glm::radians(rotDeg);
@@ -81,12 +87,62 @@ void Scene::setup_scene( const auto& models, const std::string& filename)
             transform = glm::rotate(transform, rot.y, glm::vec3(0,1,0));
             transform = glm::rotate(transform, rot.z, glm::vec3(0,0,1));
         }
-        if (objNode["translate"]) {
+
+        if (objNode["translate"]) 
+        {
             auto t = objNode["translate"];
             glm::vec3 pos(t[0].as<float>(), t[1].as<float>(), t[2].as<float>());
             transform = glm::translate(transform, pos);
         }
-        objects.emplace_back(file["model_name"].as<std::string>(),transform, models);
+
+        objects.emplace_back(objNode["model_name"].as<std::string>(),transform, models);
+    }
+    //TODO: Andere Objekte wie Boden, etc. implementieren
+}
+
+
+void Scene::update_data()
+{
+    size_t total_triangles = 0;
+    size_t total_materials = 0;
+    size_t total_textures = 0;
+
+    for (const auto& obj : objects) {
+        total_triangles += obj.model->triangles.size();
+        total_materials += obj.model->materials.size();
+        total_textures += obj.model->textures.size();
     }
 
+    triangles.reserve(total_triangles);
+    materials.reserve(total_materials);
+    textures.reserve(total_textures);
+
+    for (const auto& obj : objects)
+    {      
+        int material_offset = materials.size();
+        int texture_offset  = textures.size();
+
+        textures.insert(textures.end(), obj.model->textures.begin(), obj.model->textures.end());
+
+        for (const auto& mat : obj.model->materials) 
+        {
+            Material m = mat;
+            if (m.diffuseTex >= 0)
+                m.diffuseTex += texture_offset;
+            materials.push_back(m);
+        }
+
+        for (const auto& tri : obj.model->triangles) 
+        {
+            Triangle t;
+            t.mat_id = tri.mat_id + material_offset;
+            for (int i = 0; i < 3; i++) 
+            {
+                t.v[i] = glm::vec3(obj.transform * glm::vec4(tri.v[i], 1.0f));
+                t.uv[i] = tri.uv[i];
+            }
+            t.update();
+            triangles.push_back(t);
+        }
+    }
 }

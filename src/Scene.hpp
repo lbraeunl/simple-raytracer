@@ -5,10 +5,10 @@
 #include "Model.hpp"
 
 struct Object {
-    Model* model;
+    const Model* model;
     glm::mat4 transform;
 
-    Object(const std::string& model_name, const glm::mat4& transform, const auto& models);
+    Object(const std::string& model_name, const glm::mat4& transform, const std::vector<Model>& models);
 };
 
 
@@ -28,6 +28,7 @@ struct Camera {
     glm::ivec2 resolution;
     Rectangle image_plane;
     
+    Camera();
     Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels);
 
 private: 
@@ -45,10 +46,10 @@ public:
     std::vector<Material> materials;
     std::vector<Texture> textures;
 
-    Scene();
-    Scene(const auto& models, const std::string& filename = "scene/setup.yaml");
+    Scene(const std::vector<Model>& models, const std::string& filename);
+    void update_data();
 
 private:
-    void setup_scene(const auto& models, const std::string& filename);
+    void setup_scene(const std::vector<Model>& models, const std::string& filename);
 
 };

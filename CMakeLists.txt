@@ -18,7 +18,7 @@ add_subdirectory(external/tinyobjloader)
 add_subdirectory(external/yaml-cpp)
 
 # Executable
-add_executable(main src/main.cpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp)
+add_executable(main src/main.cpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp src/BVH.hpp src/BVH.cpp)
 target_compile_features(main PRIVATE cxx_std_17)
 
 target_include_directories(main PRIVATE external/glm external/tinycolormap/include external/stb)

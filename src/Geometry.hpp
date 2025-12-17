@@ -2,6 +2,17 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+struct Triangle;
+
+struct HitRecord {
+    float t;
+    float u,v;
+    const Triangle* triangle;
+
+    HitRecord();
+    HitRecord(const float& t, Triangle* triangle);
+};
+
 struct Ray
 {
     glm::vec3 point;
@@ -26,16 +37,16 @@ struct Triangle
     Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], int mat_id);
 
     void update();
-
-    void yz_swap();
-
     void print() const;
+    bool triangle_intersect(const Ray& ray, HitRecord& hit) const;
+
 };
 
 struct AABB
 {
     glm::vec3 l;
     glm::vec3 u;
+
     AABB();
     AABB(const std::vector<Triangle>& triangles);
     AABB(const AABB b1, const AABB b2);
@@ -43,33 +54,11 @@ struct AABB
     uint8_t longest_axis() const;
     float surface_area() const;
     void update_box(const std::vector<Triangle>& triangles,int start,int end);
-};
-
-struct Bucket {
-    int count = 0;
-    AABB box;
+    void expand(Triangle t);
+    bool box_intersect(const Ray& ray) const;
 };
 
 
-struct BVHNode {
-    AABB box;
-    BVHNode* left;
-    BVHNode* right;
-    bool isLeaf;
-    std::vector<Triangle> triangles;
-
-    BVHNode(const std::vector<Triangle>& triangles,int max_leaf_size);
-    BVHNode(const std::vector<Triangle>& triangles,AABB box);
-    BVHNode();
-};
-
-struct HitRecord {
-    float t;
-    float u,v;
-    const Triangle* triangle;
-
-    HitRecord(const float& t, Triangle* triangle);
-};
 
 struct Rectangle {
     glm::vec3 origin;

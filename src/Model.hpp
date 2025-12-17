@@ -30,12 +30,13 @@ public:
     std::vector<Material> materials;
     std::vector<Texture> textures;
     std::vector<Triangle> triangles;
+    std::string name;
 
-    Model();
-
-    bool load_object_from_file(std::string directory, std::string filename,bool y_up=false);
-    void add_floor(glm::vec3 color,int size);
+    Model(std::string filename, std::string directory);
+    //void add_floor(glm::vec3 color,int size);
 
 private:
     int load_texture(std::string tex_directory, std::string texname);
+    bool load_object_from_file(std::string filename, std::string directory);
+
 };

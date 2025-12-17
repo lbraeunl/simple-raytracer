@@ -8,10 +8,14 @@ Texture::Texture(std::string filename)
     data = stbi_loadf(filename.c_str(), &width, &height, &channels, 3);
 }
 
-Model::Model() {}
-
-bool Model::load_object_from_file(std::string directory, std::string filename, bool y_up)
+Model::Model(std::string filename, std::string directory)
 {
+    load_object_from_file(filename, directory);
+}
+
+bool Model::load_object_from_file(std::string filename, std::string directory)
+{
+    name = filename;
     tinyobj::attrib_t inAttrib;
     std::vector<tinyobj::shape_t> inShapes;
     std::vector<tinyobj::material_t> inMaterials;
@@ -27,8 +31,8 @@ bool Model::load_object_from_file(std::string directory, std::string filename, b
 		std::cerr << err << std::endl;
 		return false;
 	}
-    int mat_offset = materials.size();
-    materials.reserve(mat_offset+inMaterials.size());
+
+    materials.reserve(inMaterials.size());
     for (auto& m : inMaterials) {
         Material mat;
 
@@ -69,9 +73,7 @@ bool Model::load_object_from_file(std::string directory, std::string filename, b
                     tria.uv[i]= glm::vec2(inAttrib.texcoords[2*idx.texcoord_index+0],inAttrib.texcoords[2*idx.texcoord_index+1]);
                 }
             }
-            if(y_up) tria.yz_swap();
-            tria.mat_id = mat_offset+shape.mesh.material_ids[f];
-            tria.update();
+            tria.mat_id = shape.mesh.material_ids[f];
             triangles.emplace_back(tria);
         }
     }
@@ -88,11 +90,11 @@ int Model::load_texture(std::string tex_directory, std::string texname)
     return static_cast<int>(textures.size() - 1);
 }
 
-void Model::add_floor(glm::vec3 color,int size)
-{
-    Material mat;
-    mat.diffuseColor = color;
-    materials.push_back(mat);
-    triangles.emplace_back(glm::vec3(size*0.5f,size*(-0.5f),0.f),glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
-    triangles.emplace_back(glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*(-0.5f),size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
-}
+// void Model::add_floor(glm::vec3 color,int size)
+// {
+//     Material mat;
+//     mat.diffuseColor = color;
+//     materials.push_back(mat);
+//     triangles.emplace_back(glm::vec3(size*0.5f,size*(-0.5f),0.f),glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
+//     triangles.emplace_back(glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*(-0.5f),size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
+// }
