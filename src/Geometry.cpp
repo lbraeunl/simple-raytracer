@@ -181,4 +181,6 @@ bool AABB::box_intersect(const Ray& ray) const
 
 // HitRecord
 
+HitRecord::HitRecord() {}
+
 HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle), u(-1.f), v(-1.f) {}

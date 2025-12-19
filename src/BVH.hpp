@@ -39,7 +39,7 @@ public:
         root = build_BVH(0, (int)tris.size());
     }
 
-    HitRecord traverse_BVH(const Ray& ray, bool any_hit);
+    HitRecord traverse_BVH(const Ray& ray, bool any_hit) const;
 
 private:
     int build_BVH(int start, int end);

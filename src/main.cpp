@@ -2,7 +2,6 @@
 #include "tiny_obj_loader.h"
 #include <iostream>
 #include <glm/vec3.hpp>
-#include "Geometry.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #define STB_IMAGE_IMPLEMENTATION
 #include <glm/gtx/norm.hpp>
@@ -11,9 +10,12 @@
 #include <chrono>
 #include <tinycolormap.hpp>
 #include <optional>
+#include "Geometry.hpp"
 #include "Model.hpp"
 #include "Scene.hpp"
 #include "BVH.hpp"
+#include "Renderer.hpp"
+#include "Postprocessing.hpp"
 
 using namespace glm;
 
@@ -249,31 +251,6 @@ std::vector<uint8_t> generateHeatmap(const std::vector<uint8_t>& pixels) {
 //     return best_hit;
 // }
 
-inline float reinhard(float x)
-{
-    return x / (1.0f + x);
-}
-
-inline float aces(float v)
-{
-    float a = v * (v + 0.0245786) - 0.000090537;
-    float b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return a/b;
-}
-
-std::vector<uint8> tone_mapping(const std::vector<float>& float_pixels, float yamma)
-{
-    std::vector<uint8> pixels((float_pixels.size()*4)/3);
-    for(size_t idx=0;idx<pixels.size()/4;idx++)
-    {
-        for(int c=0;c<3;++c){
-            uint8 v = uint8(std::pow(reinhard(float_pixels[idx*3 + c]),yamma)*255); 
-            pixels[idx*4 + c] = v;
-        }
-        pixels[idx*4 + 3] = 255;
-    }
-    return pixels;
-}
 
 int main()
 { 
@@ -310,76 +287,19 @@ int main()
     BVH bvh(scene.triangles);
     std::cout << "Building is finished! Starting Rendering..." << std::endl;
 
-    //END
-    
-    auto start = std::chrono::high_resolution_clock::now();
+    Renderer renderer(scene, bvh);
+    auto pixel_values = renderer.render();
+    std::cout << "Image is successfully rendered! Starting Post-processing..." << std::endl;
 
+    auto pixel_colors = tone_mapping(pixel_values, 1.6);
 
-    int height = scene.camera.resolution.x;
-    int width = scene.camera.resolution.y;
-    std::vector<float> float_pixels(width * height * 3, 0);
-
-    for(int j=0;j<height;++j)
-    {
-        for(int i=0;i<width;++i)
-        {
-            vec3 pos = scene.camera.image_plane.origin + scene.camera.image_plane.w*float(i)/float(width) + scene.camera.image_plane.h*float(j)/float(height);
-            Ray ray(scene.camera.position, pos);
-            unsigned idx = (j * width + i) * 3;
-            
-            HitRecord hit = bvh.traverse_BVH(ray, false);
-            LOG(heatMap.heatpixels.push_back(heatMap.intersects));
-            if(hit.t!=INFINITY)
-            {
-                Ray shadow_ray(ray.at(hit.t)+hit.triangle->normal*0.0005f,scene.lights.front().position);
-                HitRecord shadow_hit = bvh.traverse_BVH(shadow_ray, true);
-
-                float intensity = 0.f;
-                vec3 v(0.f);
-                vec3 color_diffuse(0.f);
-                if(shadow_hit.t==INFINITY) {
-                    intensity = std::max(0.0f,dot(shadow_ray.direction, hit.triangle->normal));
-                    v = shadow_ray.direction - 2*dot(hit.triangle->normal,-shadow_ray.direction)*hit.triangle->normal;
-                }
-
-                int tex_id = scene.materials[hit.triangle->mat_id].diffuseTex;
-                if(tex_id >=0)
-                {
-                    vec2 uv_values = hit.u*hit.triangle->uv[0] + hit.v*hit.triangle->uv[1] + (1-hit.u-hit.v) * hit.triangle->uv[2];
-                    Texture tex = scene.textures[tex_id];
-
-                    int x = clamp(int(uv_values.x * (tex.width  - 1)), 0, tex.width  - 1);
-                    int y = clamp(int(uv_values.y * (tex.height - 1)), 0, tex.height - 1);
-                    int tex_idx = (y * tex.width + x) * tex.channels;
-
-                    color_diffuse = {tex.data[tex_idx + 0],tex.data[tex_idx + 1],tex.data[tex_idx + 2]};
-                }
-                else
-                {
-                    color_diffuse = scene.materials[hit.triangle->mat_id].diffuseColor;
-                }
-                
-                for(int c=0;c<3;++c){
-                    float_pixels[idx + c] = color_diffuse[c]*(alpha*point_light.color[c]*intensity+beta*ambient_light[c])
-                    +(gamma*point_light.color[c]*intensity*std::pow(dot(-ray.direction,v),m));                   
-                }
-            }
-        }
-    }
-
-    auto pixels = tone_mapping(float_pixels,1.6);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
-    std::cout << "Total render time: " << elapsed.count() << " seconds\n";
-
-    auto window = sf::RenderWindow(sf::VideoMode({width, height}), "RaytracerPOG");
+    auto window = sf::RenderWindow(sf::VideoMode({scene.camera.resolution.x, scene.camera.resolution.y}), "RaytracerPOG");
     window.setFramerateLimit(60);
     
 
-    sf::Texture texture(sf::Vector2u(width, height));
+    sf::Texture texture(sf::Vector2u(scene.camera.resolution.x, scene.camera.resolution.y));
     LOG(texture.update(generateHeatmap(heatMap.heatpixels).data()););
-    if (HEATMAP==false) texture.update(pixels.data());
+    if (HEATMAP==false) texture.update(pixel_colors.data());
 
     sf::Sprite sprite(texture);
 

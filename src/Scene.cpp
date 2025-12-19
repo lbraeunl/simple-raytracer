@@ -39,6 +39,24 @@ void Camera::build_image_plane(float distance_to_camera)
     image_plane.origin = position + forward*distance_to_camera - 0.5f*image_plane.h - 0.5f*image_plane.w;
 }
 
+std::vector<Ray> Camera::generate_rays() const
+{
+    size_t pixel_count = resolution.x*resolution.y;
+    std::vector<Ray> rays;
+    rays.reserve(pixel_count);
+    
+    for (size_t i = 0; i < pixel_count; ++i)
+    {
+        float u = (i % resolution.x + 0.5f) / float(resolution.x);
+        float v = (i / resolution.x + 0.5f) / float(resolution.y);
+
+        glm::vec3 image_pos = image_plane.origin + u*image_plane.w + v*image_plane.h;
+        rays.emplace_back(position, image_pos);
+    }
+    return rays;
+}
+
+
 Scene::Scene(const std::vector<Model>& models, const std::string& filename)
 {
     setup_scene(models, filename);

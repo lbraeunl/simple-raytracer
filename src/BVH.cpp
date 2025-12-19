@@ -30,7 +30,7 @@ int BVH::build_BVH(int start, int end)
 }
 
 
-HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit)
+HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit) const
 {
     HitRecord best_hit(INFINITY, nullptr);
     std::stack<int> stack;

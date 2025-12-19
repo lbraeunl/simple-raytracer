@@ -31,6 +31,8 @@ struct Camera {
     Camera();
     Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels);
 
+    std::vector<Ray> generate_rays() const;
+
 private: 
     void build_image_plane(float distance_to_camera);
 };

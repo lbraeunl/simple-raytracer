@@ -7,7 +7,7 @@ struct Triangle;
 struct HitRecord {
     float t;
     float u,v;
-    const Triangle* triangle;
+    const Triangle* triangle;  //refactor to only contain information and not whole triangle
 
     HitRecord();
     HitRecord(const float& t, Triangle* triangle);
