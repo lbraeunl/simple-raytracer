@@ -56,6 +56,11 @@ struct AABB
     void update_box(const std::vector<Triangle>& triangles,int start,int end);
     void expand(Triangle t);
     bool box_intersect(const Ray& ray) const;
+    void print() const
+    {
+    std::cout << "lower:" << l.x << "," << l.y << "," << l.z << std::endl;
+    std::cout << "upper:" << u.x << "," << u.y << "," << u.z << std::endl;
+    }
 };
 
 

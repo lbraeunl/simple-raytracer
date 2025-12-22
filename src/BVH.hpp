@@ -6,7 +6,7 @@
 
 struct Bucket {
     int count = 0;
-    AABB box;
+    AABB box{};
 };
 
 
@@ -42,6 +42,8 @@ public:
     HitRecord traverse_BVH(const Ray& ray, bool any_hit) const;
 
 private:
-    int build_BVH(int start, int end);
+    int build_BVH(int start, int end, int nBuckets = 12);
+    int build_simple_BVH(int start, int end);
     AABB compute_box(int start, int end);
+    
 };

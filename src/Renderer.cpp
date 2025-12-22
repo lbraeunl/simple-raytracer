@@ -42,6 +42,9 @@ std::vector<glm::vec3> Renderer::render()
             
             glm::vec3 color;
             for(int c=0;c<3;++c){
+                
+                float spec = std::pow(std::max(0.0f, dot(-view_rays[i].direction, v)), m);
+
                 color[c] = color_diffuse[c]*(alpha*scene.lights[0].color[c]*intensity+beta*color_ambient[c])
                 +(gamma_*scene.lights[0].color[c]*intensity*std::pow(dot(-view_rays[i].direction,v),m));                   
             }
@@ -52,3 +55,13 @@ std::vector<glm::vec3> Renderer::render()
 
     return pixel_values;
 }
+
+// Shadow rays not distance-limited
+
+// Specular term can go NaN
+
+// Ambient term is mathematically wrong
+
+// Lighting normal usage inconsistent
+
+// Back-face lighting bug

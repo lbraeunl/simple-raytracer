@@ -94,6 +94,7 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     if (hit.t <= EPSILON)
         return false;
 
+    hit.triangle = this;
     //hit.position = ray.point + hit.t * ray.direction;
     //float w = 1.0f - hit.u - hit.v;
     //hit.normal = glm::normalize(w * n[0] + hit.u * n[1] + hit.v * n[2])
@@ -104,7 +105,7 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 // AABB
 
 AABB::AABB()
-    : l(0.0f,0.f,0.f), u(0.f,0.f,0.f) {}
+    : l(INFINITY,INFINITY,INFINITY), u(-INFINITY,-INFINITY,-INFINITY) {}
 
 AABB::AABB(const std::vector<Triangle>& triangles)
     {
