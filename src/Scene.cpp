@@ -1,6 +1,8 @@
 #include "Scene.hpp"
 #include <yaml-cpp/yaml.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 
 
 Object::Object(const std::string& model_name,const glm::mat4& transform, const std::vector<Model>& models):transform(transform)
@@ -17,7 +19,7 @@ LightSource::LightSource(const glm::vec3& position, const glm::vec3& color): pos
 
 Camera::Camera() : position(0.0f, 0.0f, 0.0f), forward(1.0f, 0.0f, 0.0f), up(0.0f, 1.0f, 0.0f), fov(60.0f), resolution(glm::vec2({1080,720})) {}
 
-Camera::Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels): position(position), forward(forward), up(up), fov(fov)
+Camera::Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels): position(position), forward(glm::normalize(forward)), up(up), fov(fov)
 {
     resolution.x = width_pixels;
     resolution.y = height_pixels;
@@ -48,7 +50,7 @@ std::vector<Ray> Camera::generate_rays() const
     for (size_t i = 0; i < pixel_count; ++i)
     {
         float u = (i % resolution.x + 0.5f) / float(resolution.x);
-        float v = (i / resolution.x + 0.5f) / float(resolution.y);
+        float v = 1.0f - (i / resolution.x + 0.5f) / float(resolution.y);
 
         glm::vec3 image_pos = image_plane.origin + u*image_plane.w + v*image_plane.h;
         rays.emplace_back(position, image_pos);
@@ -56,14 +58,32 @@ std::vector<Ray> Camera::generate_rays() const
     return rays;
 }
 
-
-Scene::Scene(const std::vector<Model>& models, const std::string& filename)
+std::unordered_set<std::string> Scene::get_model_names(const std::string& filename)
 {
-    setup_scene(models, filename);
+    YAML::Node root = YAML::LoadFile(filename);
+
+    std::unordered_set<std::string> model_names;
+
+    for (const auto& obj : root["objects"])
+    {
+        if (obj["model_name"])
+        {
+            model_names.insert(obj["model_name"].as<std::string>());
+        }
+    }
+
+    return model_names;
+}
+
+Scene::Scene(const std::string& filename)
+{
+    for (const std::string& m : get_model_names(filename))
+        models.emplace_back(m, "/home/lukas/simple-raytracer/scene/");
+    setup_scene(filename);
 }
 
 
-void Scene::setup_scene(const std::vector<Model>& models, const std::string& filename)
+void Scene::setup_scene(const std::string& filename)
 {
     YAML::Node file = YAML::LoadFile(filename);
 
@@ -99,11 +119,10 @@ void Scene::setup_scene(const std::vector<Model>& models, const std::string& fil
         {
             auto r = objNode["rotate"];
             glm::vec3 rotDeg(r[0].as<float>(), r[1].as<float>(), r[2].as<float>());
-            glm::vec3 rot = glm::radians(rotDeg);
+            //glm::vec3 rot = glm::radians(rotDeg);
 
-            transform = glm::rotate(transform, rot.x, glm::vec3(1,0,0));
-            transform = glm::rotate(transform, rot.y, glm::vec3(0,1,0));
-            transform = glm::rotate(transform, rot.z, glm::vec3(0,0,1));
+            glm::quat q = glm::quat(glm::radians(rotDeg)); // converts XYZ Euler angles to quaternion
+            transform = transform * glm::mat4_cast(q);
         }
 
         if (objNode["translate"]) 
@@ -121,12 +140,16 @@ void Scene::setup_scene(const std::vector<Model>& models, const std::string& fil
 
 void Scene::update_data()
 {
+    triangles.clear();
+    materials.clear();
+    textures.clear();
+    
     size_t total_triangles = 0;
     size_t total_materials = 0;
     size_t total_textures = 0;
 
     for (const auto& obj : objects) {
-        total_triangles += obj.model->triangles.size();
+        total_triangles += obj.model->triangles.size(); 
         total_materials += obj.model->materials.size();
         total_textures += obj.model->textures.size();
     }

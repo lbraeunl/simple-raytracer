@@ -32,10 +32,8 @@ public:
     std::string name;
 
     Model(std::string filename, std::string directory);
-    //void add_floor(glm::vec3 color,int size);
-
+    
 private:
     int load_texture(std::string tex_directory, std::string texname);
     bool load_object_from_file(std::string filename, std::string directory);
-
 };

@@ -73,7 +73,7 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     glm::vec3 h = glm::cross(ray.direction, edge2);
     float a = glm::dot(edge1, h);
 
-    if (a > -EPSILON && a < EPSILON)
+    if (/*a > -EPSILON && */ a < EPSILON)
         return false;
 
     float f = 1.0f / a;

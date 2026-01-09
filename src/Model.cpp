@@ -1,5 +1,7 @@
 #include "Model.hpp"
 #include "stb_image.h"
+#include <yaml-cpp/yaml.h>
+
 
 
 Texture::Texture(std::string filename)
@@ -83,17 +85,7 @@ int Model::load_texture(std::string tex_directory, std::string texname)
 {
     if (texname.empty()) return -1;
 
-    Texture tex(tex_directory + "/" + texname);
-    textures.push_back(tex);
+    textures.emplace_back(tex_directory + "/" + texname);
 
     return static_cast<int>(textures.size() - 1);
 }
-
-// void Model::add_floor(glm::vec3 color,int size)
-// {
-//     Material mat;
-//     mat.diffuseColor = color;
-//     materials.push_back(mat);
-//     triangles.emplace_back(glm::vec3(size*0.5f,size*(-0.5f),0.f),glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
-//     triangles.emplace_back(glm::vec3(size*0.5f, size*0.5f,0.f),glm::vec3(size*(-0.5f),size*0.5f,0.f),glm::vec3(size*-0.5f, size*-0.5f,0.f),int(materials.size()-1));
-// }

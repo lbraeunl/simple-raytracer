@@ -46,20 +46,11 @@ std::vector<uint8_t> generateHeatmap(const std::vector<uint8_t>& pixels) {
 
 int main()
 { 
-    /* ================= MODELLOADER ================= */
-
-    std::cout << "[INFO] Loading models." << std::endl;
-
-    std::vector<Model> models;
-    std::vector<std::string> models_to_load = {"plane", "trees9"};
-    for (const std::string& m : models_to_load)
-        models.emplace_back(m, "/home/lukas/simple-raytracer/scene/");
-
     /* ================= SCENE SETUP ================= */
 
     std::cout << "[INFO] Initializing scene...";
 
-    Scene scene(models, "/home/lukas/simple-raytracer/scene/setup.yaml");
+    Scene scene("/home/lukas/simple-raytracer/scene/setup.yaml");
     scene.update_data();
 
     std::cout << "Scene initialized (" << scene.triangles.size() << " triangles)." << std::endl;

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <unordered_set>
 #include "Geometry.hpp"
 #include "Model.hpp"
 
@@ -40,18 +41,20 @@ private:
 
 class Scene {
 public:
-    Camera camera;
+    std::vector<Model> models;
     std::vector<Object> objects;
+
+    Camera camera;
     std::vector<LightSource> lights;
 
     std::vector<Triangle> triangles;
     std::vector<Material> materials;
     std::vector<Texture> textures;
 
-    Scene(const std::vector<Model>& models, const std::string& filename);
+    Scene(const std::string& filename);
     void update_data();
 
 private:
-    void setup_scene(const std::vector<Model>& models, const std::string& filename);
-
+    void setup_scene(const std::string& filename);
+    std::unordered_set<std::string> get_model_names(const std::string& filename);
 };
