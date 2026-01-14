@@ -33,7 +33,9 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
 		return false;
 	}
 
-    materials.reserve(inMaterials.size());
+    materials.reserve(inMaterials.size()+1);
+    materials.push_back(make_default_material());
+
     for (auto& m : inMaterials) {
         Material mat;
 
@@ -60,7 +62,8 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
     {
         for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) 
         {
-            if (shape.mesh.num_face_vertices[f] != 3) {
+            if (shape.mesh.num_face_vertices[f] != 3) 
+            {
                 std::cout << "Warning:" << filename << " contains a non-triangular shape that is skipped." << std::endl;
                 continue;
             }
@@ -69,12 +72,19 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
             {
                 tinyobj::index_t idx = shape.mesh.indices[3*f+i];
                 tria.v[i] = glm::vec3(inAttrib.vertices[3*idx.vertex_index+0], inAttrib.vertices[3*idx.vertex_index+1], inAttrib.vertices[3*idx.vertex_index+2]);
+
+                if (idx.normal_index >= 0)
+                {
+                    tria.n[i] = glm::vec3(inAttrib.normals[3*idx.normal_index + 0], inAttrib.normals[3*idx.normal_index + 1], inAttrib.normals[3*idx.normal_index + 2]);
+                }
+
                 if (idx.texcoord_index >= 0)
                 {
                     tria.uv[i]= glm::vec2(inAttrib.texcoords[2*idx.texcoord_index+0],inAttrib.texcoords[2*idx.texcoord_index+1]);
                 }
             }
-            tria.mat_id = shape.mesh.material_ids[f];
+
+            tria.mat_id = shape.mesh.material_ids[f]+1;
             triangles.emplace_back(tria);
         }
     }
@@ -88,4 +98,18 @@ int Model::load_texture(std::string tex_directory, std::string texname)
     textures.emplace_back(tex_directory + "/" + texname);
 
     return static_cast<int>(textures.size() - 1);
+}
+
+Material Model::make_default_material()
+{
+    Material mat;
+    mat.ambientColor  = glm::vec3(0.0f);
+    mat.diffuseColor  = glm::vec3(0.7f);   
+    mat.specularColor = glm::vec3(0.0f);
+
+    mat.ambientTex  = -1;
+    mat.diffuseTex  = -1;
+    mat.specularTex = -1;
+
+    return mat;
 }

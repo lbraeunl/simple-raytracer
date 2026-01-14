@@ -111,7 +111,7 @@ void Scene::setup_scene(const std::string& filename)
         if (objNode["scale"]) 
         {
             auto s = objNode["scale"];
-            glm::vec3 scale(s[0].as<float>(), s[1].as<float>(), s[2].as<float>());
+            glm::vec3 scale(s.as<float>(), s.as<float>(), s.as<float>());
             transform = glm::scale(transform, scale);
         }
 
@@ -180,6 +180,7 @@ void Scene::update_data()
             for (int i = 0; i < 3; i++) 
             {
                 t.v[i] = glm::vec3(obj.transform * glm::vec4(tri.v[i], 1.0f));
+                t.n[i] = glm::normalize(glm::mat3(obj.transform) * tri.n[i]);
                 t.uv[i] = tri.uv[i];
             }
             t.update();

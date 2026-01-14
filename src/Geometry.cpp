@@ -30,12 +30,13 @@ glm::vec3 Ray::at(float t) const {
 Triangle::Triangle()
     : centroid(0.f), normal(0.f), mat_id(-1) {}
 
-Triangle::Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], int mat_id)
+Triangle::Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], glm::vec3 normals[3], int mat_id)
 {
     for(int i=0;i<3;++i)
     {
         v[i] = vertices[i];
         uv[i] = uvs[i];
+        n[i] = normals[i];
     }
     update();
     mat_id = mat_id;

@@ -36,4 +36,5 @@ public:
 private:
     int load_texture(std::string tex_directory, std::string texname);
     bool load_object_from_file(std::string filename, std::string directory);
+    Material make_default_material();
 };

@@ -69,7 +69,7 @@ int main()
 
     /* ================= RENDERING ================= */
 
-    std::cout << "[INFO] Starting rendering...";
+    std::cout << "[INFO] Starting rendering..." << std::endl;
     auto render_start = std::chrono::high_resolution_clock::now();
 
     Renderer renderer(scene, bvh);
