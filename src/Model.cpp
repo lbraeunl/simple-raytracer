@@ -76,6 +76,7 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
                 if (idx.normal_index >= 0)
                 {
                     tria.n[i] = glm::vec3(inAttrib.normals[3*idx.normal_index + 0], inAttrib.normals[3*idx.normal_index + 1], inAttrib.normals[3*idx.normal_index + 2]);
+                    tria.hasVertexNormals = true;
                 }
 
                 if (idx.texcoord_index >= 0)
@@ -83,9 +84,9 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
                     tria.uv[i]= glm::vec2(inAttrib.texcoords[2*idx.texcoord_index+0],inAttrib.texcoords[2*idx.texcoord_index+1]);
                 }
             }
-
+            
             tria.mat_id = shape.mesh.material_ids[f]+1;
-            triangles.emplace_back(tria);
+            triangles.push_back(tria);
         }
     }
     return true;

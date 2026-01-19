@@ -119,9 +119,7 @@ void Scene::setup_scene(const std::string& filename)
         {
             auto r = objNode["rotate"];
             glm::vec3 rotDeg(r[0].as<float>(), r[1].as<float>(), r[2].as<float>());
-            //glm::vec3 rot = glm::radians(rotDeg);
-
-            glm::quat q = glm::quat(glm::radians(rotDeg)); // converts XYZ Euler angles to quaternion
+            glm::quat q = glm::quat(glm::radians(rotDeg));
             transform = transform * glm::mat4_cast(q);
         }
 
@@ -134,7 +132,6 @@ void Scene::setup_scene(const std::string& filename)
 
         objects.emplace_back(objNode["model_name"].as<std::string>(),transform, models);
     }
-    //TODO: Andere Objekte wie Boden, etc. implementieren
 }
 
 
@@ -175,7 +172,7 @@ void Scene::update_data()
 
         for (const auto& tri : obj.model->triangles) 
         {
-            Triangle t;
+            Triangle t = tri;
             t.mat_id = tri.mat_id + material_offset;
             for (int i = 0; i < 3; i++) 
             {

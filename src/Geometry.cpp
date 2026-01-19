@@ -65,6 +65,15 @@ void Triangle::print() const
     std::cout << "normal:" << normal.x << "," << normal.y << "," << normal.z << std::endl;
 }
 
+glm::vec3 Triangle::interpolate_normal(float u, float v) const
+    {
+        if (hasVertexNormals) 
+        {
+            return glm::normalize(u * n[0] + v * n[1] + (1.0f - u - v) * n[2]);
+        }
+        return normal;
+    }
+
 bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 {
     const float EPSILON = 1e-8f;

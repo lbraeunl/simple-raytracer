@@ -28,19 +28,21 @@ struct Triangle
 {
     glm::vec3 v[3];
     glm::vec2 uv[3];
-    glm::vec3 n[3];
+    glm::vec3 n[3]{};
     glm::vec3 centroid;
     glm::vec3 normal;
+    bool hasVertexNormals = false;
     int mat_id;
 
     Triangle();
     Triangle(glm::vec3 a,glm::vec3 b,glm::vec3 c,int mat_id);
     Triangle(glm::vec3 vertices[3], glm::vec2 uvs[3], glm::vec3 normals[3], int mat_id);
 
+
     void update();
     void print() const;
     bool triangle_intersect(const Ray& ray, HitRecord& hit) const;
-
+    glm::vec3 interpolate_normal(float u, float v) const;
 };
 
 struct AABB

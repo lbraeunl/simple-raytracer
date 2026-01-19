@@ -9,8 +9,8 @@ public:
     const BVH& bvh;
 
     float alpha = 1;
-    float beta = 4;
-    float gamma_ = 1;
+    float beta = 6;
+    float gamma_ = 5;
     float m = 10;
 
     Renderer(const Scene& scene_, const BVH& bvh_) : scene(scene_), bvh(bvh_) {}

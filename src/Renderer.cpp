@@ -11,21 +11,20 @@ std::vector<glm::vec3> Renderer::render()
 
         if (hit.t == INFINITY)
             continue;
-        
-        glm::vec3 normal = glm::normalize(hit.u * hit.triangle->n[0] + hit.v * hit.triangle->n[1] + (1 - hit.u - hit.v) * hit.triangle->n[2]);
-        // add normals for objects without them
+
+        glm::vec3 normal = hit.triangle->interpolate_normal(hit.u, hit.v);
 
         Ray shadow_ray(view_rays[i].at(hit.t)+normal*0.0005f,scene.lights[0].position);
         HitRecord shadow_hit = bvh.traverse_BVH(shadow_ray, true);
 
         float diff_intensity = 0.f;
         float spec_intensity = 0.f;
-        glm::vec3 r(0.f);
+
         glm::vec3 color_diffuse(0.f);
         glm::vec3 color_ambient = scene.materials[hit.triangle->mat_id].ambientColor;
 
         if(shadow_hit.t==INFINITY) { //change this later, so it only counts until the light source.
-            r = -shadow_ray.direction + 2*dot(normal,shadow_ray.direction)*normal;
+            glm::vec3 r = -shadow_ray.direction + 2*dot(normal,shadow_ray.direction)*normal;
             diff_intensity = std::max(0.0f,dot(shadow_ray.direction, normal));
             spec_intensity = std::pow(std::max(0.0f, dot(-view_rays[i].direction, r)), m);
         }
