@@ -14,7 +14,27 @@ Object::Object(const std::string& model_name,const glm::mat4& transform, const s
 }
 
 
-LightSource::LightSource(const glm::vec3& position, const glm::vec3& color): position(position), color(color){}
+LightSource::LightSource(const glm::vec3& origin, const glm::vec3& w, const glm::vec3& h, const glm::vec3& color, int count): area(origin, w, h), color(color), count(count) {}
+
+
+std::vector<glm::vec3> LightSource::get_lightpoints() const
+{
+    float ratio = glm::length(area.w)/glm::length(area.h);
+    int count_h = std::max(1, int(std::sqrt(count / ratio)));
+    int count_w = std::max(1, count / count_h);
+
+    std::vector<glm::vec3> l;
+    l.reserve(count_h * count_w);
+
+    for (int i = 0; i < count_h * count_w; ++i)
+    {
+        auto grid_h = area.h*(float(i/count_w)/count_h);
+        auto grid_w = area.w*(float(i%count_w)/count_w);
+        l.push_back(area.origin + grid_h + grid_w);
+    }
+
+    return l;
+}
 
 
 Camera::Camera() : position(0.0f, 0.0f, 0.0f), forward(1.0f, 0.0f, 0.0f), up(0.0f, 1.0f, 0.0f), fov(60.0f), resolution(glm::vec2({1080,720})) {}
@@ -58,6 +78,13 @@ std::vector<Ray> Camera::generate_rays() const
     return rays;
 }
 
+Ray Camera::generate_ray(int px, int py) const
+{
+    glm::vec3 image_pos = image_plane.origin + (px/float(resolution.x))*image_plane.w + (1.0f - py/float(resolution.y))*image_plane.h;
+    return Ray(position, image_pos);
+}
+
+
 std::unordered_set<std::string> Scene::get_model_names(const std::string& filename)
 {
     YAML::Node root = YAML::LoadFile(filename);
@@ -99,9 +126,13 @@ void Scene::setup_scene(const std::string& filename)
 
     for (const auto& lightNode : file["lights"]) 
     {
-        glm::vec3 pos(lightNode["position"][0].as<float>(),lightNode["position"][1].as<float>(),lightNode["position"][2].as<float>());
+        glm::vec3 origin(lightNode["origin"][0].as<float>(),lightNode["origin"][1].as<float>(),lightNode["origin"][2].as<float>());
         glm::vec3 color(lightNode["color"][0].as<float>(),lightNode["color"][1].as<float>(),lightNode["color"][2].as<float>());
-        lights.emplace_back(pos, color);
+        glm::vec3 w(lightNode["w"][0].as<float>(),lightNode["w"][1].as<float>(),lightNode["w"][2].as<float>());
+        glm::vec3 h(lightNode["h"][0].as<float>(),lightNode["h"][1].as<float>(),lightNode["h"][2].as<float>());
+        int count(lightNode["count"].as<float>());
+
+        lights.emplace_back(origin, w, h, color, count);
     }
 
     for (const auto& objNode : file["objects"]) 

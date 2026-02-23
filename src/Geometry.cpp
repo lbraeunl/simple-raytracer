@@ -195,3 +195,9 @@ bool AABB::box_intersect(const Ray& ray) const
 HitRecord::HitRecord() {}
 
 HitRecord::HitRecord(const float& t, Triangle* triangle):t(t),triangle(triangle), u(-1.f), v(-1.f) {}
+
+
+//Rectangle
+
+Rectangle::Rectangle(const glm::vec3 origin, const glm::vec3 w, const glm::vec3 h): origin(origin), w(w), h(h) {}
+

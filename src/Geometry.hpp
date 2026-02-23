@@ -72,4 +72,8 @@ struct Rectangle {
     glm::vec3 origin;
     glm::vec3 w;
     glm::vec3 h;
+
+    Rectangle() : origin(0.0f), w(0.0f), h(0.0f) {}
+
+    Rectangle(const glm::vec3 origin, const glm::vec3 w, const glm::vec3 h);
 };

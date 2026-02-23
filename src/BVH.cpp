@@ -100,14 +100,10 @@ HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit) const
     std::stack<int> stack;
     stack.push(root);
 
-    //LOG(heatMap.intersects = 0;);
-
     while (!stack.empty()) {
         int nodeIndex = stack.top();
         stack.pop();
         const BVHNode& node = nodes[nodeIndex];
-
-        //LOG(heatMap.intersects += 1;);
 
         if (!(node.box.box_intersect(ray)))
             continue;

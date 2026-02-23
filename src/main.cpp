@@ -16,6 +16,7 @@ using namespace glm;
 constexpr bool HEATMAP = false;
 #define LOG(code) \
     do { if constexpr (HEATMAP) { code; } } while(0)
+    
 struct HeatMap {
     uint8_t intersects;
     std::vector<uint8_t> heatpixels = {};
@@ -46,18 +47,18 @@ std::vector<uint8_t> generateHeatmap(const std::vector<uint8_t>& pixels) {
 
 int main()
 { 
-    /* ================= SCENE SETUP ================= */
+/* ================= SCENE SETUP ================= */
 
-    std::cout << "[INFO] Initializing scene...";
+    std::cout << "[INFO] Initializing scene..." << std::endl;
 
     Scene scene("/home/lukas/simple-raytracer/scene/setup.yaml");
     scene.update_data();
 
-    std::cout << "Scene initialized (" << scene.triangles.size() << " triangles)." << std::endl;
+    std::cout << "[INFO] Scene initialized (" << scene.triangles.size() << " triangles)." << std::endl;
 
     /* ================= BVH BUILDING ================= */
 
-    std::cout << "[INFO] Building BVH...";
+    std::cout << "[INFO] Building BVH..." << std::endl;
     auto bvh_start = std::chrono::high_resolution_clock::now();
 
     BVH bvh(scene.triangles);
@@ -65,7 +66,7 @@ int main()
     auto bvh_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> bvh_time = bvh_end - bvh_start;
 
-    std::cout << "BVH construction finished in " << bvh_time.count() << " s." << std::endl;
+    std::cout << "[INFO] BVH construction finished in " << bvh_time.count() << " s." << std::endl;
 
     /* ================= RENDERING ================= */
 
@@ -77,14 +78,14 @@ int main()
 
     auto render_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> render_time = render_end - render_start;
-    std::cout << "Rendering completed in " << render_time.count() << " s." << std::endl;
+    std::cout << "[INFO] Rendering completed in " << render_time.count() << " s." << std::endl;
 
     /* ================= POST-PROCESSING ================= */
 
-    std::cout << "[INFO] Applying tone mapping...";
-    auto pixel_colors = tone_mapping(pixel_values, 1.6);
+    std::cout << "[INFO] Applying tone mapping..." << std::endl;
+    auto pixel_colors = tone_mapping(pixel_values, 1.7);
     
-    std::cout << "Pipeline finished successfully!" << std::endl;
+    std::cout << "[INFO] Pipeline finished successfully!" << std::endl;
 
     auto window = sf::RenderWindow(sf::VideoMode({scene.camera.resolution.x, scene.camera.resolution.y}), "RaytracerPOG");
     window.setFramerateLimit(60);

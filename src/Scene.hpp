@@ -14,10 +14,13 @@ struct Object {
 
 
 struct LightSource {
-    glm::vec3 position;
+    Rectangle area;
     glm::vec3 color;
+    int count;
 
-    LightSource(const glm::vec3& position, const glm::vec3& color);
+    LightSource(const glm::vec3& origin, const glm::vec3& w, const glm::vec3& h, const glm::vec3& color, int count);
+
+    std::vector<glm::vec3> get_lightpoints() const;
 };
 
 
@@ -33,6 +36,8 @@ struct Camera {
     Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels);
 
     std::vector<Ray> generate_rays() const;
+    Ray generate_ray(int px, int py) const;
+
 
 private: 
     void build_image_plane(float distance_to_camera);
