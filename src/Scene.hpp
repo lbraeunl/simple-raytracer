@@ -29,7 +29,7 @@ struct Camera {
     glm::vec3 forward;
     glm::vec3 up;
     float fov;
-    glm::ivec2 resolution;
+    glm::uvec2 resolution;
     Rectangle image_plane;
     
     Camera();
