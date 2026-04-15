@@ -90,7 +90,7 @@ glm::vec3 Renderer::get_material_color(HitRecord& hit) const
 
 glm::vec3 Renderer::trace(Ray ray) const
 {
-    HitRecord hit = bvh.traverse_BVH(ray, false);
+    HitRecord hit = bvh.traverse_BVH(ray, INFINITY);
 
     if (hit.t == INFINITY)
         return glm::vec3(0.0f);
@@ -111,9 +111,10 @@ glm::vec3 Renderer::trace(Ray ray) const
         {
             glm::vec3 hit_position = ray.at(hit.t);            
             Ray shadow_ray(hit_position+normal*0.0005f,lp);
-            HitRecord shadow_hit = bvh.traverse_BVH(shadow_ray, true);
-
             float light_distance = glm::distance(lp, hit_position);
+
+            HitRecord shadow_hit = bvh.traverse_BVH(shadow_ray, light_distance);
+
             float diffuse_factor = 0.f;
             float specular_factor = 0.f;
 

@@ -94,9 +94,9 @@ int BVH::build_simple_BVH(int start, int end)
 }
 
 
-HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit) const
+HitRecord BVH::traverse_BVH(const Ray& ray, float t_max) const
 {
-    HitRecord best_hit(INFINITY, nullptr);
+    HitRecord best_hit(t_max, nullptr);
     std::stack<int> stack;
     stack.push(root);
 
@@ -105,7 +105,7 @@ HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit) const
         stack.pop();
         const BVHNode& node = nodes[nodeIndex];
 
-        if (!(node.box.box_intersect(ray)))
+        if (!(node.box.box_intersect(ray, best_hit.t)))
             continue;
 
         if (node.isLeaf) {
@@ -115,7 +115,7 @@ HitRecord BVH::traverse_BVH(const Ray& ray, bool any_hit) const
                 HitRecord current_hit;
                 if (t.triangle_intersect(ray, current_hit) && current_hit.t < best_hit.t) {
                     best_hit = current_hit;
-                    if (any_hit) 
+                    if (t_max < INFINITY) 
                         return best_hit;
                 }
             }

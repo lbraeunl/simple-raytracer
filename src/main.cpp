@@ -10,12 +10,9 @@
 #include "BVH.hpp"
 #include "Renderer.hpp"
 #include "Postprocessing.hpp"
+#include "logger.hpp"
 
 using namespace glm;
-
-constexpr bool HEATMAP = false;
-#define LOG(code) \
-    do { if constexpr (HEATMAP) { code; } } while(0)
     
 struct HeatMap {
     uint8_t intersects;
@@ -83,9 +80,10 @@ int main()
     /* ================= POST-PROCESSING ================= */
 
     std::cout << "[INFO] Applying tone mapping..." << std::endl;
-    auto pixel_colors = tone_mapping(pixel_values, 1.7);
+    auto pixel_colors = tone_mapping(pixel_values, 1.8);
     
     std::cout << "[INFO] Pipeline finished successfully!" << std::endl;
+    LOG(std::cout << "Total Intersection Tests:" << INT_COUNT << std::endl;);
 
     auto window = sf::RenderWindow(sf::VideoMode({scene.camera.resolution.x, scene.camera.resolution.y}), "RaytracerPOG");
     window.setFramerateLimit(60);

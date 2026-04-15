@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+
 struct Triangle;
 
 struct HitRecord {
@@ -58,15 +59,13 @@ struct AABB
     float surface_area() const;
     void update_box(const std::vector<Triangle>& triangles,int start,int end);
     void expand(Triangle t);
-    bool box_intersect(const Ray& ray) const;
+    bool box_intersect(const Ray& ray, float t_max) const;
     void print() const
     {
     std::cout << "lower:" << l.x << "," << l.y << "," << l.z << std::endl;
     std::cout << "upper:" << u.x << "," << u.y << "," << u.z << std::endl;
     }
 };
-
-
 
 struct Rectangle {
     glm::vec3 origin;

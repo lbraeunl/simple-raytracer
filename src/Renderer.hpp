@@ -13,9 +13,9 @@ public:
     const Scene& scene;
     const BVH& bvh;
 
-    float alpha = 0.3;
-    float beta = 5;
-    float gamma_ = 5;
+    float alpha = 0.2;
+    float beta = 3;
+    float gamma_ = 4;
     float m = 10;
 
     Renderer(const Scene& scene_, const BVH& bvh_) : scene(scene_), bvh(bvh_) {}

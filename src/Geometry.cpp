@@ -3,6 +3,7 @@
 #include <glm/gtx/norm.hpp>
 #include <glm/ext/scalar_common.hpp>
 #include "stb_image.h"
+#include "logger.hpp"
 
 //Miscellaneous
 
@@ -13,7 +14,7 @@ uint8_t argmax(glm::vec3 v)
     return (uint8_t)2;
 }
 
-// Line
+// Ray
 
 Ray::Ray() : point(0.0f), direction(0.0f, 1.0f, 0.0f) {}
 
@@ -76,6 +77,7 @@ glm::vec3 Triangle::interpolate_normal(float u, float v) const
 
 bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 {
+    LOG(INT_COUNT+=1;);
     const float EPSILON = 1e-8f;
     glm::vec3 edge1 = v[1] - v[0];
     glm::vec3 edge2 = v[2] - v[0];
@@ -159,8 +161,9 @@ uint8_t AABB::longest_axis() const
     return argmax(glm::vec3(u-l));
 }
 
-bool AABB::box_intersect(const Ray& ray) const
+bool AABB::box_intersect(const Ray& ray, float t_max) const
 {
+    LOG(INT_COUNT+=1;);
     float t_x0 = (l[0] - ray.point.x)/(ray.direction.x);
     float t_x1 = (u[0] - ray.point.x)/(ray.direction.x);
     if (t_x0 > t_x1) std::swap(t_x0, t_x1);
@@ -185,6 +188,8 @@ bool AABB::box_intersect(const Ray& ray) const
     tExit  = std::min(tExit,  t_z1);
 
     if (tEnter > tExit) return false;
+
+    if (tEnter > t_max) return false;
 
     return tExit >= 0.0f;
 }

@@ -14,7 +14,8 @@ Object::Object(const std::string& model_name,const glm::mat4& transform, const s
 }
 
 
-LightSource::LightSource(const glm::vec3& origin, const glm::vec3& w, const glm::vec3& h, const glm::vec3& color, int count): area(origin, w, h), color(color), count(count) {}
+LightSource::LightSource(const glm::vec3& origin, const glm::vec3& w, const glm::vec3& h, const glm::vec3& color, int count): area(origin, w, h), color(color), count(count)
+{}
 
 
 std::vector<glm::vec3> LightSource::get_lightpoints() const
@@ -37,7 +38,9 @@ std::vector<glm::vec3> LightSource::get_lightpoints() const
 }
 
 
-Camera::Camera() : position(0.0f, 0.0f, 0.0f), forward(1.0f, 0.0f, 0.0f), up(0.0f, 1.0f, 0.0f), fov(60.0f), resolution(glm::vec2({1080,720})) {}
+Camera::Camera() : position(0.0f, 0.0f, 0.0f), forward(1.0f, 0.0f, 0.0f), up(0.0f, 1.0f, 0.0f), fov(60.0f), resolution(glm::vec2({1080,720})) 
+{}
+
 
 Camera::Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels): position(position), forward(glm::normalize(forward)), up(up), fov(fov)
 {
@@ -61,6 +64,7 @@ void Camera::build_image_plane(float distance_to_camera)
     image_plane.origin = position + forward*distance_to_camera - 0.5f*image_plane.h - 0.5f*image_plane.w;
 }
 
+
 std::vector<Ray> Camera::generate_rays() const
 {
     size_t pixel_count = resolution.x*resolution.y;
@@ -77,6 +81,7 @@ std::vector<Ray> Camera::generate_rays() const
     }
     return rays;
 }
+
 
 Ray Camera::generate_ray(int px, int py) const
 {
@@ -101,6 +106,7 @@ std::unordered_set<std::string> Scene::get_model_names(const std::string& filena
 
     return model_names;
 }
+
 
 Scene::Scene(const std::string& filename)
 {
