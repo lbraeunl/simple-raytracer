@@ -14,62 +14,73 @@ int BVH::build_BVH(int start, int end,  AABB parent_box, int nBuckets)
 
     int axis = nodes[nodeIndex].box.longest_axis();
 
-    std::sort(indices.begin()+start, indices.begin()+end, [axis, this](int a, int b) {
-        return (*triangles)[a].centroid[axis] < (*triangles)[b].centroid[axis];
-    });
-
-    int best_split = 0;
-    AABB best_left_box;
-    AABB best_right_box;
-
     float cmin = (*triangles)[indices[start]].centroid[axis];
-    float cmax = (*triangles)[indices[end-1]].centroid[axis];
+    float cmax = cmin;
+    for (size_t i = start+1; i<end; ++i) {
+        float c = (*triangles)[indices[i]].centroid[axis];
+        cmin = std::min(cmin, c);
+        cmax = std::max(cmax, c);
+    }
     float extent = cmax - cmin;
 
     if (extent==0){
-        best_split = (start+end)/2;
+        int mid = (start+end)/2;
+        
+        nodes[nodeIndex].left  = build_BVH(start, mid, compute_box(start, mid), nBuckets);
+        nodes[nodeIndex].right = build_BVH(mid, end, compute_box(mid, end), nBuckets);
+        return nodeIndex;
     }
-    else
+
+    std::vector<Bucket> buckets(nBuckets);
+    for(size_t i = start; i<end; ++i)
     {
-        std::vector<Bucket> buckets(nBuckets);
-        for(size_t i = start; i<end; ++i)
-        {
-            const Triangle t = (*triangles)[indices[i]];
-            int b = nBuckets*(t.centroid[axis]-cmin) / extent;
-            if (b == nBuckets) b = nBuckets - 1;
-            buckets[b].count++;
-            buckets[b].box.expand(boxes[indices[i]]);
-        }
-
-        float minCost = INFINITY;
-        int count = 0;     
-        for(int splits = 1;splits<buckets.size();++splits)
-        {
-            AABB left_box = buckets[0].box;
-            for (int i = 1;i<splits;++i)
-            {
-                left_box = AABB(left_box,buckets[i].box);
-            }
-
-            AABB right_box = buckets[splits].box;
-            for (int i = splits+1;i<buckets.size();++i)
-            {
-                right_box = AABB(right_box,buckets[i].box);
-            }
-
-            count += buckets[splits-1].count;
-            float cost = count*left_box.surface_area()+((end-start)-count)*right_box.surface_area();
-            if(cost < minCost){
-                minCost = cost;
-                best_split = start + count;
-                best_left_box = left_box;
-                best_right_box = right_box;
-            }          
-        }
+        float c = (*triangles)[indices[i]].centroid[axis];
+        int b = nBuckets*(c-cmin) / extent;
+        if (b == nBuckets) b = nBuckets - 1;
+        buckets[b].count++;
+        buckets[b].box.expand(boxes[indices[i]]);
     }
 
-    nodes[nodeIndex].left = build_BVH(start, best_split, best_left_box, nBuckets);
-    nodes[nodeIndex].right = build_BVH(best_split, end, best_right_box, nBuckets);
+    float minCost = INFINITY;
+    int count = 0;
+    int best_split = 0;
+    int mid = 0;
+    AABB best_left_box;
+    AABB best_right_box;
+
+    for(int splits = 1;splits<buckets.size();++splits)
+    {
+        AABB left_box = buckets[0].box;
+        for (int i = 1;i<splits;++i)
+        {
+            left_box = AABB(left_box,buckets[i].box);
+        }
+
+        AABB right_box = buckets[splits].box;
+        for (int i = splits+1;i<buckets.size();++i)
+        {
+            right_box = AABB(right_box,buckets[i].box);
+        }
+
+        count += buckets[splits-1].count;
+        float cost = count*left_box.surface_area()+((end-start)-count)*right_box.surface_area();
+        if(cost < minCost){
+            minCost = cost;
+            mid = start + count;
+            best_split = splits;
+            best_left_box = left_box;
+            best_right_box = right_box;
+        }          
+    }
+
+    float split_pos = cmin + extent * best_split/nBuckets;
+
+    std::partition(indices.begin() + start,indices.begin() + end,[&](int idx) {
+            return (*triangles)[idx].centroid[axis] < split_pos;
+        });
+    
+    nodes[nodeIndex].left = build_BVH(start, mid, best_left_box, nBuckets);
+    nodes[nodeIndex].right = build_BVH(mid, end, best_right_box, nBuckets);
 
     return nodeIndex;
 }
