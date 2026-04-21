@@ -54,6 +54,8 @@ struct AABB
     AABB();
     AABB(const std::vector<Triangle>& triangles);
     AABB(const AABB b1, const AABB b2);
+    AABB(const glm::vec3 lower, const glm::vec3 upper);
+
 
     uint8_t longest_axis() const;
     float surface_area() const;

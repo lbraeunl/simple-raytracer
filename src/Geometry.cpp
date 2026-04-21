@@ -124,6 +124,12 @@ AABB::AABB(const std::vector<Triangle>& triangles)
         update_box(triangles,0,triangles.size());
     };
 
+AABB::AABB(const glm::vec3 lower, const glm::vec3 upper)
+{
+    l = lower;
+    u = upper;
+}
+
 AABB::AABB(const AABB b1, const AABB b2)
 {
     l = glm::min(b1.l,b2.l);

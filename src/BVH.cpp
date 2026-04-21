@@ -2,13 +2,13 @@
 #include <stack>
 
 
-int BVH::build_BVH(int start, int end, int nBuckets)
+int BVH::build_BVH(int start, int end,  AABB parent_box, int nBuckets)
 {   
     bool isLeaf = (end - start) <= leafsize;
     nodes.emplace_back(start, end, isLeaf);
     int nodeIndex = nodes.size() - 1;
 
-    nodes[nodeIndex].box = compute_box(start, end);
+    nodes[nodeIndex].box = parent_box;
 
     if (isLeaf) return nodeIndex;
 
@@ -19,6 +19,9 @@ int BVH::build_BVH(int start, int end, int nBuckets)
     });
 
     int best_split = 0;
+    AABB best_left_box;
+    AABB best_right_box;
+
     float cmin = (*triangles)[indices[start]].centroid[axis];
     float cmax = (*triangles)[indices[end-1]].centroid[axis];
     float extent = cmax - cmin;
@@ -36,10 +39,25 @@ int BVH::build_BVH(int start, int end, int nBuckets)
             if (b == nBuckets) b = nBuckets - 1;
             buckets[b].count++;
             buckets[b].box.expand(t);
+
+            // if (buckets[b].start < 0) 
+            // {
+            //     buckets[b].start = i;
+            //     buckets[b].end = i;
+            // }
+            // else buckets[b].end++;
         }
 
+        // for (Bucket b: buckets)
+        // {
+        //     b.count = b.end - b.start;
+        //     b.box = compute_box(b.start, b.end);
+        // }
+
+        
+
         float minCost = INFINITY;
-        int count = 0;
+        int count = 0;     
         for(int splits = 1;splits<buckets.size();++splits)
         {
             AABB left_box = buckets[0].box;
@@ -59,12 +77,14 @@ int BVH::build_BVH(int start, int end, int nBuckets)
             if(cost < minCost){
                 minCost = cost;
                 best_split = start + count;
+                best_left_box = left_box;
+                best_right_box = right_box;
             }          
         }
     }
 
-    nodes[nodeIndex].left = build_BVH(start, best_split, nBuckets);
-    nodes[nodeIndex].right = build_BVH(best_split, end, nBuckets);
+    nodes[nodeIndex].left = build_BVH(start, best_split, best_left_box, nBuckets);
+    nodes[nodeIndex].right = build_BVH(best_split, end, best_right_box, nBuckets);
 
     return nodeIndex;
 }
@@ -135,4 +155,23 @@ AABB BVH::compute_box(int start, int end)
     for (int i = start; i < end; ++i)
         box.expand((*triangles)[indices[i]]);
     return box;
+}
+
+
+AABB BVH::compute_box_fast(int start, int end, int axis)
+{
+    glm::vec3 lower(0.f);
+    glm::vec3 upper(0.f);
+    
+    for (int d = 0; d < 3; ++d)
+    {
+        if (d==axis)
+        {
+            lower[d] = (*triangles)[indices[start]].centroid[d];
+            upper[d] = (*triangles)[indices[end]].centroid[d];
+        }
+    }
+    
+    
+    return AABB(lower, upper);
 }
