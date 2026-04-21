@@ -34,27 +34,12 @@ int BVH::build_BVH(int start, int end,  AABB parent_box, int nBuckets)
         std::vector<Bucket> buckets(nBuckets);
         for(size_t i = start; i<end; ++i)
         {
-            Triangle t = (*triangles)[indices[i]];
+            const Triangle t = (*triangles)[indices[i]];
             int b = nBuckets*(t.centroid[axis]-cmin) / extent;
             if (b == nBuckets) b = nBuckets - 1;
             buckets[b].count++;
-            buckets[b].box.expand(t);
-
-            // if (buckets[b].start < 0) 
-            // {
-            //     buckets[b].start = i;
-            //     buckets[b].end = i;
-            // }
-            // else buckets[b].end++;
+            buckets[b].box.expand(boxes[indices[i]]);
         }
-
-        // for (Bucket b: buckets)
-        // {
-        //     b.count = b.end - b.start;
-        //     b.box = compute_box(b.start, b.end);
-        // }
-
-        
 
         float minCost = INFINITY;
         int count = 0;     
@@ -153,25 +138,6 @@ AABB BVH::compute_box(int start, int end)
 {
     AABB box;
     for (int i = start; i < end; ++i)
-        box.expand((*triangles)[indices[i]]);
+        box.expand(boxes[indices[i]]);
     return box;
-}
-
-
-AABB BVH::compute_box_fast(int start, int end, int axis)
-{
-    glm::vec3 lower(0.f);
-    glm::vec3 upper(0.f);
-    
-    for (int d = 0; d < 3; ++d)
-    {
-        if (d==axis)
-        {
-            lower[d] = (*triangles)[indices[start]].centroid[d];
-            upper[d] = (*triangles)[indices[end]].centroid[d];
-        }
-    }
-    
-    
-    return AABB(lower, upper);
 }

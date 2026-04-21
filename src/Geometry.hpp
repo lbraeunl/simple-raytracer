@@ -52,15 +52,15 @@ struct AABB
     glm::vec3 u;
 
     AABB();
-    AABB(const std::vector<Triangle>& triangles);
+    AABB(const Triangle& t);
+    //AABB(const std::vector<Triangle>& triangles);
     AABB(const AABB b1, const AABB b2);
-    AABB(const glm::vec3 lower, const glm::vec3 upper);
 
 
     uint8_t longest_axis() const;
     float surface_area() const;
-    void update_box(const std::vector<Triangle>& triangles,int start,int end);
-    void expand(Triangle t);
+    //void update_box(const std::vector<Triangle>& triangles,int start,int end);
+    void expand(AABB b);
     bool box_intersect(const Ray& ray, float t_max) const;
     void print() const
     {

@@ -119,15 +119,15 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 AABB::AABB()
     : l(INFINITY,INFINITY,INFINITY), u(-INFINITY,-INFINITY,-INFINITY) {}
 
-AABB::AABB(const std::vector<Triangle>& triangles)
-    {
-        update_box(triangles,0,triangles.size());
-    };
+// AABB::AABB(const std::vector<Triangle>& triangles)
+//     {
+//         update_box(triangles,0,triangles.size());
+//     };
 
-AABB::AABB(const glm::vec3 lower, const glm::vec3 upper)
+AABB::AABB(const Triangle& t)
 {
-    l = lower;
-    u = upper;
+    l = glm::min(t.v[0],t.v[1],t.v[2]);
+    u = glm::max(t.v[0],t.v[1],t.v[2]);
 }
 
 AABB::AABB(const AABB b1, const AABB b2)
@@ -141,24 +141,22 @@ float AABB::surface_area() const
     return (u[0]-l[0])*(u[1]-l[1])+(u[0]-l[0])*(u[2]-l[2])+(u[1]-l[1])*(u[2]-l[2]);
 }
 
-void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,int end)
-{
-    l = {INFINITY,INFINITY,INFINITY};
-    u = {-INFINITY,-INFINITY,-INFINITY};
-    for (int i = start;i<end;++i)
-    {         
-        expand(sorted_triangles[i]);
-    }  
-}
+// void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,int end)
+// {
+//     l = {INFINITY,INFINITY,INFINITY};
+//     u = {-INFINITY,-INFINITY,-INFINITY};
+//     for (int i = start;i<end;++i)
+//     {         
+//         expand(sorted_triangles[i]);
+//     }  
+// }
 
-void AABB::expand(Triangle t)
+void AABB::expand(AABB b)
 {
-    glm::vec3 min = glm::min(t.v[0],t.v[1],t.v[2]);
-    glm::vec3 max = glm::max(t.v[0],t.v[1],t.v[2]);
     for(int i=0;i<3;++i)
     {
-        if(min[i]<l[i]) l[i] = min[i];
-        if(max[i]>u[i]) u[i] = max[i];
+        if(b.l[i]<l[i]) l[i] = b.l[i];
+        if(b.u[i]>u[i]) u[i] = b.u[i];
     }
 }
 
