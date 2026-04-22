@@ -1,17 +1,26 @@
 #include "Renderer.hpp"
+#include "logger.hpp"
 #include <thread>
 #include <atomic>
 
 std::vector<glm::vec3> Renderer::single_render() 
 { 
-    std::vector<Ray> view_rays = scene.camera.generate_rays();
-    std::vector<glm::vec3> framebuffer(view_rays.size()); 
-    for (size_t i=0; i<view_rays.size();++i) 
-    { 
-        framebuffer[i] = trace(view_rays[i]);
+    const int width  = scene.camera.resolution.x;
+    const int height = scene.camera.resolution.y;
+    std::vector<glm::vec3> framebuffer(width * height);
+    LOG(heat_map.heatpixels.resize(width * height));
+
+    for (size_t py = 0; py < height; ++py) {
+        for (size_t px = 0; px < width; ++px) {
+
+            glm::vec3 color = trace(px, py);
+
+            framebuffer[py * width + px] = color;
+        }
     }
+    
     return framebuffer; 
-    }
+}
 
     
 std::vector<glm::vec3> Renderer::render()
@@ -45,8 +54,7 @@ std::vector<glm::vec3> Renderer::render()
             for (size_t py = tile.y0; py < tile.y1; ++py) {
                 for (size_t px = tile.x0; px < tile.x1; ++px) {
 
-                    Ray ray = scene.camera.generate_ray(px, py);
-                    glm::vec3 color = trace(ray);
+                    glm::vec3 color = trace(px, py);
 
                     framebuffer[py * width + px] = color;
                 }
@@ -71,12 +79,17 @@ glm::vec3 Renderer::get_material_color(HitRecord& hit) const
 {
     int tex_id = scene.materials[hit.triangle->mat_id].diffuseTex;
     if(tex_id >=0)
-    {
-        glm::vec2 uv_values = hit.u*hit.triangle->uv[0] + hit.v*hit.triangle->uv[1] + (1-hit.u-hit.v) * hit.triangle->uv[2];
+    {   
+        float w = 1.0f - hit.u - hit.v;
+        glm::vec2 uv_values = w * hit.triangle->uv[0] + hit.u * hit.triangle->uv[1] + hit.v * hit.triangle->uv[2];
         const Texture& tex = scene.textures[tex_id];
 
-        int x = glm::clamp(int(uv_values.x * (tex.width  - 1)), 0, tex.width  - 1);
-        int y = glm::clamp(int(uv_values.y * (tex.height - 1)), 0, tex.height - 1);
+        float u = uv_values.x - std::floor(uv_values.x);
+        float v = uv_values.y - std::floor(uv_values.y);
+
+        int x = int(u * (tex.width - 1));
+        int y = int((v) * (tex.height - 1));
+
         int tex_idx = (y * tex.width + x) * tex.channels;
 
         return {tex.data[tex_idx + 0],tex.data[tex_idx + 1],tex.data[tex_idx + 2]};
@@ -88,9 +101,14 @@ glm::vec3 Renderer::get_material_color(HitRecord& hit) const
 }
 
 
-glm::vec3 Renderer::trace(Ray ray) const
+glm::vec3 Renderer::trace(int px, int py) const
 {
+    Ray ray = scene.camera.generate_ray(px, py);
+
+    LOG(INT_COUNT += heat_map.intersects);
+    LOG(heat_map.intersects = 0);
     HitRecord hit = bvh.traverse_BVH(ray, INFINITY);
+    LOG(heat_map.heatpixels[py * scene.camera.resolution.x + px] = heat_map.intersects);
 
     if (hit.t == INFINITY)
         return glm::vec3(0.0f);

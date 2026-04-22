@@ -86,13 +86,13 @@ int BVH::build_BVH(int start, int end,  AABB parent_box, int nBuckets)
 }
 
 
-int BVH::build_simple_BVH(int start, int end)
+int BVH::build_simple_BVH(int start, int end, AABB parent_box)
 {
     bool isLeaf = (end - start) <= leafsize;
     nodes.emplace_back(start, end, isLeaf);
     int nodeIndex = nodes.size() - 1;
 
-    nodes[nodeIndex].box = compute_box(start, end);
+    nodes[nodeIndex].box = parent_box;
 
     if (isLeaf) return nodeIndex;
 
@@ -103,8 +103,27 @@ int BVH::build_simple_BVH(int start, int end)
         return (*triangles)[a].centroid[axis] < (*triangles)[b].centroid[axis];
     });
 
-    nodes[nodeIndex].left = build_simple_BVH(start, mid);
-    nodes[nodeIndex].right = build_simple_BVH(mid, end);
+    nodes[nodeIndex].left = build_simple_BVH(start, mid,compute_box(start, mid));
+    nodes[nodeIndex].right = build_simple_BVH(mid, end, compute_box(mid, end));
+
+    return nodeIndex;
+}
+
+int BVH::build_random_BVH(int start, int end, AABB parent_box)
+{
+    bool isLeaf = (end - start) <= leafsize;
+    nodes.emplace_back(start, end, isLeaf);
+    int nodeIndex = nodes.size() - 1;
+
+    nodes[nodeIndex].box = parent_box;
+
+    if (isLeaf) return nodeIndex;
+
+    int axis = nodes[nodeIndex].box.longest_axis();
+    size_t mid = (start+end)/2;
+
+    nodes[nodeIndex].left = build_simple_BVH(start, mid,compute_box(start, mid));
+    nodes[nodeIndex].right = build_simple_BVH(mid, end, compute_box(mid, end));
 
     return nodeIndex;
 }

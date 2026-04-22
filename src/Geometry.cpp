@@ -70,14 +70,14 @@ glm::vec3 Triangle::interpolate_normal(float u, float v) const
     {
         if (hasVertexNormals) 
         {
-            return glm::normalize(u * n[0] + v * n[1] + (1.0f - u - v) * n[2]);
+            return glm::normalize(u * n[1] + v * n[2] + (1.0f - u - v) * n[0]);
         }
         return normal;
     }
 
 bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 {
-    LOG(INT_COUNT+=1;);
+    LOG(heat_map.intersects+=1;);
     const float EPSILON = 1e-8f;
     glm::vec3 edge1 = v[1] - v[0];
     glm::vec3 edge2 = v[2] - v[0];
@@ -167,7 +167,7 @@ uint8_t AABB::longest_axis() const
 
 bool AABB::box_intersect(const Ray& ray, float t_max) const
 {
-    LOG(INT_COUNT+=1;);
+    LOG(heat_map.intersects+=1;);
     float t_x0 = (l[0] - ray.point.x)/(ray.direction.x);
     float t_x1 = (u[0] - ray.point.x)/(ray.direction.x);
     if (t_x0 > t_x1) std::swap(t_x0, t_x1);

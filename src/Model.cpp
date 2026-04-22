@@ -57,20 +57,23 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
 
     triangles.reserve(total_faces);
 
-    Triangle tria;
     for (const auto& shape : inShapes) 
     {
+        size_t index_offset = 0;
         for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) 
         {
-            if (shape.mesh.num_face_vertices[f] != 3) 
+            size_t fv = shape.mesh.num_face_vertices[f];
+            if (fv != 3) 
             {
                 std::cout << "Warning:" << filename << " contains a non-triangular shape that is skipped." << std::endl;
+                index_offset += fv;
                 continue;
             }
 
+            Triangle tria;
             for(int i=0;i<3;++i)
             {
-                tinyobj::index_t idx = shape.mesh.indices[3*f+i];
+                tinyobj::index_t idx = shape.mesh.indices[index_offset+i];
                 tria.v[i] = glm::vec3(inAttrib.vertices[3*idx.vertex_index+0], inAttrib.vertices[3*idx.vertex_index+1], inAttrib.vertices[3*idx.vertex_index+2]);
 
                 if (idx.normal_index >= 0)
@@ -87,6 +90,8 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
             
             tria.mat_id = shape.mesh.material_ids[f]+1;
             triangles.push_back(tria);
+
+            index_offset += 3;
         }
     }
     return true;

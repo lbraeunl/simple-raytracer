@@ -46,7 +46,7 @@ public:
             root_box.expand(boxes[i]);
         }       
 
-        root = build_BVH(0, n, root_box);
+        root = build_simple_BVH(0, n, root_box);
 
         boxes.clear();
     }
@@ -55,6 +55,8 @@ public:
 
 private:
     int build_BVH(int start, int end, AABB parent_box, int nBuckets = 12);
-    int build_simple_BVH(int start, int end);
+    int build_simple_BVH(int start, int end, AABB parent_box);
+    int build_random_BVH(int start, int end, AABB parent_box);
+
     AABB compute_box(int start, int end);
 };
