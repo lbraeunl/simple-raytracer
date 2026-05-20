@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 project(CMakeSFMLProject LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(FetchContent)
@@ -18,7 +22,7 @@ add_subdirectory(external/tinyobjloader)
 add_subdirectory(external/yaml-cpp)
 
 # Executable
-add_executable(main src/main.cpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp src/BVH.hpp src/BVH.cpp src/Renderer.hpp src/Renderer.cpp src/Postprocessing.hpp src/Postprocessing.cpp src/logger.hpp)
+add_executable(main src/main.cpp src/utils.hpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp src/BVH.hpp src/BVH.cpp src/Renderer.hpp src/Renderer.cpp src/Postprocessing.hpp src/Postprocessing.cpp src/logger.hpp)
 target_compile_features(main PRIVATE cxx_std_17)
 
 target_include_directories(main PRIVATE external/glm external/tinycolormap/include external/stb)

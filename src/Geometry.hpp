@@ -8,6 +8,8 @@ struct Triangle;
 struct HitRecord {
     float t;
     float u,v;
+    glm::vec3 position;
+    glm::vec3 normal;
     const Triangle* triangle;  //refactor to only contain information and not whole triangle
 
     HitRecord();
@@ -32,6 +34,7 @@ struct Triangle
     glm::vec3 n[3]{};
     glm::vec3 centroid;
     glm::vec3 normal;
+    float area = 0.f;
     bool hasVertexNormals = false;
     int mat_id;
 

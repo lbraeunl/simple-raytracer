@@ -56,6 +56,9 @@ void Triangle::update()
 {
     centroid = (v[0] + v[1] + v[2]) / 3.0f;
     normal = glm::normalize(glm::cross(v[1] - v[0], v[2] - v[0]));
+    glm::vec3 e1 = v[1] - v[0];
+    glm::vec3 e2 = v[2] - v[0];
+    area = 0.5f * glm::length(glm::cross(e1, e2));
 }
 
 void Triangle::print() const
@@ -107,9 +110,8 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
         return false;
 
     hit.triangle = this;
-    //hit.position = ray.point + hit.t * ray.direction;
-    //float w = 1.0f - hit.u - hit.v;
-    //hit.normal = glm::normalize(w * n[0] + hit.u * n[1] + hit.v * n[2])
+    hit.position = ray.at(hit.t);
+    hit.normal = interpolate_normal(hit.u, hit.v);
     return -1.0f;
 }
 

@@ -46,7 +46,7 @@ public:
             root_box.expand(boxes[i]);
         }       
 
-        root = build_simple_BVH(0, n, root_box);
+        root = build_BVH(0, n, root_box);
 
         boxes.clear();
     }

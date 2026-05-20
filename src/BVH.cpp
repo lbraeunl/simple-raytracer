@@ -150,7 +150,7 @@ HitRecord BVH::traverse_BVH(const Ray& ray, float t_max) const
                 HitRecord current_hit;
                 if (t.triangle_intersect(ray, current_hit) && current_hit.t < best_hit.t) {
                     best_hit = current_hit;
-                    if (t_max < INFINITY) 
+                    if (t_max < INFINITY)
                         return best_hit;
                 }
             }

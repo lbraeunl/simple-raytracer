@@ -42,7 +42,7 @@ int main()
     auto render_start = std::chrono::high_resolution_clock::now();
 
     Renderer renderer(scene, bvh);
-    auto pixel_values = renderer.single_render();
+    auto pixel_values = renderer.render();
 
     auto render_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> render_time = render_end - render_start;
@@ -51,7 +51,7 @@ int main()
     /* ================= POST-PROCESSING ================= */
 
     std::cout << "[INFO] Applying tone mapping..." << std::endl;
-    auto pixel_colors = tone_mapping(pixel_values, 1.9);
+    auto pixel_colors = tone_mapping(pixel_values, 2.2);
     
     std::cout << "[INFO] Pipeline finished successfully!" << std::endl;
     LOG(std::cout << "Total Intersection Tests:" << INT_COUNT/2100000 << std::endl;);

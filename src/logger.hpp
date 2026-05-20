@@ -1,7 +1,7 @@
 #pragma once
 #include <tinycolormap.hpp>
 
-inline constexpr bool DEBUG = true;
+inline constexpr bool DEBUG = false;
 inline int INT_COUNT = 0;
 
 #define LOG(code) do { if constexpr (DEBUG) { code; } } while(0)

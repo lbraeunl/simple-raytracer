@@ -51,6 +51,7 @@ public:
 
     Camera camera;
     std::vector<LightSource> lights;
+    std::vector<size_t> lighted_triangles;
 
     std::vector<Triangle> triangles;
     std::vector<Material> materials;

@@ -211,7 +211,7 @@ void Scene::update_data()
         {
             Triangle t = tri;
             t.mat_id = tri.mat_id + material_offset;
-            for (int i = 0; i < 3; i++) 
+            for (int i = 0; i < 3; i++)
             {
                 t.v[i] = glm::vec3(obj.transform * glm::vec4(tri.v[i], 1.0f));
                 t.n[i] = glm::normalize(glm::mat3(obj.transform) * tri.n[i]);
@@ -219,6 +219,10 @@ void Scene::update_data()
             }
             t.update();
             triangles.push_back(t);
+            if (materials[t.mat_id].emissive != glm::vec3(0.f))
+            {
+                lighted_triangles.push_back(triangles.size()-1);
+            }
         }
     }
 }

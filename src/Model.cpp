@@ -39,9 +39,15 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
     for (auto& m : inMaterials) {
         Material mat;
 
-        mat.ambientColor = {m.ambient[0], m.ambient[1], m.ambient[2]};
-        mat.diffuseColor = {m.diffuse[0], m.diffuse[1], m.diffuse[2]};
-        mat.specularColor = {m.specular[0], m.specular[1], m.specular[2]};
+        mat.albedo = {m.diffuse[0], m.diffuse[1], m.diffuse[2]};
+        mat.emissive = {m.emission[0], m.emission[1], m.emission[2]};
+        if (m.shininess > 0.0f) {
+            mat.roughness = glm::sqrt(2.0f / (m.shininess + 2.0f));
+        } else {
+            mat.roughness = 1.0f;
+        }
+        mat.metallic = (m.specular[0] > 0.0f) ? 1.0f : 0.0f; 
+        mat.ior = m.ior;
 
         mat.ambientTex  = load_texture(directory+"/" + filename, m.ambient_texname);
         mat.diffuseTex  = load_texture(directory+"/" + filename, m.diffuse_texname);
@@ -109,13 +115,12 @@ int Model::load_texture(std::string tex_directory, std::string texname)
 Material Model::make_default_material()
 {
     Material mat;
-    mat.ambientColor  = glm::vec3(0.0f);
-    mat.diffuseColor  = glm::vec3(0.7f);   
-    mat.specularColor = glm::vec3(0.0f);
 
-    mat.ambientTex  = -1;
-    mat.diffuseTex  = -1;
-    mat.specularTex = -1;
+    mat.albedo = glm::vec3(0.7f);
+    mat.emissive = glm::vec3(0.0f);
+    mat.metallic = 0.0f;
+    mat.roughness = 0.5f;
+    mat.ior = 1.45f;
 
     return mat;
 }

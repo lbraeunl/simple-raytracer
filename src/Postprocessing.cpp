@@ -13,7 +13,7 @@ std::vector<glm::uint8> tone_mapping(const std::vector<glm::vec3>& pixels_in, fl
     for(size_t i=0; i<pixels_in.size(); ++i)
     {
         for(size_t c=0;c<3;++c){
-            pixels_out[4*i+c] = glm::uint8(std::pow(reinhard(pixels_in[i][c]),yamma)*255); 
+            pixels_out[4*i+c] = glm::uint8(std::pow(reinhard(pixels_in[i][c]),1/yamma)*255); 
         }
         pixels_out[4*i+3] = 255;
     }

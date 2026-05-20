@@ -11,18 +11,19 @@ struct Texture
     Texture(std::string filename);
 };
 
-
 struct Material 
 {
-    glm::vec3 ambientColor{1.0f};
-    glm::vec3 diffuseColor{1.0f};
-    glm::vec3 specularColor{1.0f};
+    glm::vec3 albedo{1.0f};
+    glm::vec3 emissive{0.0f};
+    float metallic = 0.0f;
+    float roughness = 0.5f;
+    float ior = 1.0f;
 
+    
     int ambientTex = -1;
     int diffuseTex = -1;
     int specularTex = -1;
 };
-
 
 class Model {
 public:
