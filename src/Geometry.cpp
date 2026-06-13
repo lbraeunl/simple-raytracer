@@ -56,9 +56,9 @@ void Triangle::update()
 {
     centroid = (v[0] + v[1] + v[2]) / 3.0f;
     normal = glm::normalize(glm::cross(v[1] - v[0], v[2] - v[0]));
-    glm::vec3 e1 = v[1] - v[0];
-    glm::vec3 e2 = v[2] - v[0];
-    area = 0.5f * glm::length(glm::cross(e1, e2));
+    e[0] = v[1] - v[0];
+    e[1] = v[2] - v[0];
+    area = 0.5f * glm::length(glm::cross(e[0], e[1]));
 }
 
 void Triangle::print() const
@@ -82,13 +82,11 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 {
     LOG(heat_map.intersects+=1;);
     const float EPSILON = 1e-8f;
-    glm::vec3 edge1 = v[1] - v[0];
-    glm::vec3 edge2 = v[2] - v[0];
 
-    glm::vec3 h = glm::cross(ray.direction, edge2);
-    float a = glm::dot(edge1, h);
+    glm::vec3 h = glm::cross(ray.direction, e[1]);
+    float a = glm::dot(e[0], h);
 
-    if (/*a > -EPSILON && */ a < EPSILON)
+    if (a < EPSILON)
         return false;
 
     float f = 1.0f / a;
@@ -98,13 +96,13 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     if (hit.u < 0.0f || hit.u > 1.0f)
         return false;
 
-    glm::vec3 q = glm::cross(s, edge1);
+    glm::vec3 q = glm::cross(s, e[0]);
     hit.v = f * glm::dot(ray.direction, q);
 
     if (hit.v < 0.0f || hit.u + hit.v > 1.0f)
         return false;
 
-    hit.t = f * glm::dot(edge2, q);
+    hit.t = f * glm::dot(e[1], q);
 
     if (hit.t <= EPSILON)
         return false;
@@ -112,7 +110,7 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     hit.triangle = this;
     hit.position = ray.at(hit.t);
     hit.normal = interpolate_normal(hit.u, hit.v);
-    return -1.0f;
+    return true;
 }
 
 
@@ -120,11 +118,6 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
 
 AABB::AABB()
     : l(INFINITY,INFINITY,INFINITY), u(-INFINITY,-INFINITY,-INFINITY) {}
-
-// AABB::AABB(const std::vector<Triangle>& triangles)
-//     {
-//         update_box(triangles,0,triangles.size());
-//     };
 
 AABB::AABB(const Triangle& t)
 {
@@ -142,16 +135,6 @@ float AABB::surface_area() const
 {
     return (u[0]-l[0])*(u[1]-l[1])+(u[0]-l[0])*(u[2]-l[2])+(u[1]-l[1])*(u[2]-l[2]);
 }
-
-// void AABB::update_box(const std::vector<Triangle>& sorted_triangles,int start,int end)
-// {
-//     l = {INFINITY,INFINITY,INFINITY};
-//     u = {-INFINITY,-INFINITY,-INFINITY};
-//     for (int i = start;i<end;++i)
-//     {         
-//         expand(sorted_triangles[i]);
-//     }  
-// }
 
 void AABB::expand(AABB b)
 {

@@ -41,11 +41,12 @@ bool Model::load_object_from_file(std::string filename, std::string directory)
 
         mat.albedo = {m.diffuse[0], m.diffuse[1], m.diffuse[2]};
         mat.emissive = {m.emission[0], m.emission[1], m.emission[2]};
-        if (m.shininess > 0.0f) {
-            mat.roughness = glm::sqrt(2.0f / (m.shininess + 2.0f));
-        } else {
-            mat.roughness = 1.0f;
-        }
+        mat.roughness = m.shininess;
+        // if (m.shininess > 0.0f) {
+        //     mat.roughness = glm::sqrt(2.0f / (m.shininess + 2.0f));
+        // } else {
+        //     mat.roughness = 1.0f;
+        // }
         mat.metallic = (m.specular[0] > 0.0f) ? 1.0f : 0.0f; 
         mat.ior = m.ior;
 

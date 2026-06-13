@@ -29,7 +29,7 @@ public:
     std::vector<BVHNode> nodes;
     std::vector<AABB> boxes;
     int root;
-    int leafsize = 4;
+    int leafsize = 2;
 
     BVH(const std::vector<Triangle>& tris)
     {

@@ -30,6 +30,7 @@ struct Ray
 struct Triangle
 {
     glm::vec3 v[3];
+    glm::vec3 e[2];
     glm::vec2 uv[3];
     glm::vec3 n[3]{};
     glm::vec3 centroid;

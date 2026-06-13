@@ -170,8 +170,7 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
 
     for (int j=0; j < sample_count; j++)
     {
-        radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
-
+        //radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
         //Ray secondary_ray = sample_cosine_weighted_ray(rng, hit);
         Ray secondary_ray = sample_glossy_ray(rng, hit,ray.direction,e);
 
@@ -188,7 +187,7 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
         }
 
         glm::vec3 wi = secondary_ray.direction;
-        glm::vec3 r =glm::reflect(-ray.direction, n);
+        glm::vec3 r = -glm::reflect(-ray.direction, n);
         float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
         float phong_cos = glm::max(glm::dot(r, wi), 0.0f);
 
