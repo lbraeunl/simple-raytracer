@@ -163,19 +163,21 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
 {
     glm::vec3 radiance = scene.materials[hit.triangle->mat_id].emissive;
     if (radiance.x != 0.0f || radiance.y != 0.0f || radiance.z != 0.0f) return radiance;
-    
-    glm::vec3 rho = scene.materials[hit.triangle->mat_id].albedo;
-    float e = scene.materials[hit.triangle->mat_id].roughness;
+    const Material& material = scene.materials[hit.triangle->mat_id];
     glm::vec3 n = hit.normal;
 
     for (int j=0; j < sample_count; j++)
     {
         radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
-        //Ray secondary_ray = sample_cosine_weighted_ray(rng, hit);
 
-        glm::vec3 r = -glm::reflect(-ray.direction, n);
-        Ray secondary_ray = sample_glossy_ray(rng, hit,r,e);
+        glm::vec3 wi;
+        float pdf;
+        //glm::vec3 brdf = material.sample(rng, -ray.direction, n, wi, pdf);
+        glm::vec3 brdf = material.diffuse_sample(rng,-ray.direction, n, wi, pdf);
 
+        if (pdf <= 0.0f) continue;
+
+        Ray secondary_ray(hit.position + n * 0.0001f, hit.position + wi);
         HitRecord secondary_hit = bvh.traverse_BVH(secondary_ray, INFINITY);
 
         if (secondary_hit.t == INFINITY)
@@ -188,74 +190,15 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
             l_i = compute_radiance(secondary_ray, secondary_hit, rng, depth+1);
         }
 
-        glm::vec3 wi = secondary_ray.direction;
         float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
-        float phong_cos = glm::max(glm::dot(r, wi), 0.0f);
 
-        glm::vec3 brdf = rho *((e + 2.0f) /(2.0f * std::numbers::pi_v<float>)) *std::pow(phong_cos, e);
-
-        float pdf = ((e + 1.0f) /(2.0f * std::numbers::pi_v<float>)) *std::pow(phong_cos, e);
-
-        radiance += (1.0f / sample_count)*brdf*l_i*cos_theta /pdf;
-
-        //radiance += (1.0f/sample_count)*rho*l_i;
+        radiance += (1.0f / sample_count) * brdf * l_i * cos_theta / pdf;
     }
 
     return radiance;
 }
 
 
-Ray Renderer::sample_cosine_weighted_ray(RNG& rng, HitRecord& hit) const
-{
-    float xi1 = rng.next_float();
-    float xi2 = rng.next_float();
-    float phi = 2.0*std::numbers::pi*xi2;
-    float r = sqrt(xi1);
-
-    glm::vec3 local_p2(r*cos(phi),r*sin(phi),sqrt(1.0-xi1));
-    glm::quat q = glm::rotation(glm::vec3(0.f,0.f,1.0f),hit.normal);
-
-    Ray ray(hit.position + hit.normal*0.00001f, hit.position + q*local_p2);
-
-    return ray;
-}
-
-
-Ray Renderer::sample_glossy_ray(RNG& rng, const HitRecord& hit, const glm::vec3& r, float e) const
-{
-    float xi1 = rng.next_float();
-    float xi2 = rng.next_float();
-    float cos_theta = std::pow(xi1, 1.0f / (e + 1.0f));
-    float sin_theta = std::sqrt(std::max(0.0f, 1.0f - cos_theta * cos_theta));
-    float phi = 2.0f*std::numbers::pi_v<float>*xi2;
-
-    glm::vec3 local_p2(sin_theta * std::cos(phi), sin_theta * std::sin(phi), cos_theta);
-    glm::quat q = glm::rotation(glm::vec3(0.f, 0.f, 1.f), r);
-
-    Ray ray(hit.position + r * 0.00001f, hit.position + q*local_p2);
-
-    return ray;
-}
-
-Ray Renderer::sample_ggx_ray(RNG& rng, const HitRecord& hit, glm::vec3 V, float roughness) const 
-{
-    float a = roughness * roughness;
-    float xi1 = rng.next_float();
-    float xi2 = rng.next_float();
-
-    float phi = 2.0f * std::numbers::pi_v<float> * xi1;
-    float cos_theta = std::sqrt((1.0f - xi2) / (1.0f + (a*a - 1.0f) * xi2));
-    float sin_theta = std::sqrt(1.0f - cos_theta*cos_theta);
-
-    glm::vec3 H_tangent(sin_theta * std::cos(phi), sin_theta * std::sin(phi), cos_theta);
-
-    glm::quat q = glm::rotation(glm::vec3(0.f, 0.f, 1.f), hit.normal);
-    glm::vec3 H = glm::normalize(q * H_tangent);
-
-    glm::vec3 L = glm::normalize(glm::reflect(-V, H));
-
-    return Ray(hit.position + hit.normal * 0.0001f, hit.position + L);
-}
 
 glm::vec3 Renderer::sample_triangle_point(RNG& rng, const Triangle& t) const
 {
