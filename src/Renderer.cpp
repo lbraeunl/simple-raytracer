@@ -170,9 +170,11 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
 
     for (int j=0; j < sample_count; j++)
     {
-        //radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
+        radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
         //Ray secondary_ray = sample_cosine_weighted_ray(rng, hit);
-        Ray secondary_ray = sample_glossy_ray(rng, hit,ray.direction,e);
+
+        glm::vec3 r = -glm::reflect(-ray.direction, n);
+        Ray secondary_ray = sample_glossy_ray(rng, hit,r,e);
 
         HitRecord secondary_hit = bvh.traverse_BVH(secondary_ray, INFINITY);
 
@@ -187,7 +189,6 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
         }
 
         glm::vec3 wi = secondary_ray.direction;
-        glm::vec3 r = -glm::reflect(-ray.direction, n);
         float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
         float phong_cos = glm::max(glm::dot(r, wi), 0.0f);
 
@@ -219,10 +220,9 @@ Ray Renderer::sample_cosine_weighted_ray(RNG& rng, HitRecord& hit) const
     return ray;
 }
 
-Ray Renderer::sample_glossy_ray(RNG& rng, const HitRecord& hit, const glm::vec3& wo, float e) const
-{
-    glm::vec3 r = glm::reflect(-wo, hit.normal);
 
+Ray Renderer::sample_glossy_ray(RNG& rng, const HitRecord& hit, const glm::vec3& r, float e) const
+{
     float xi1 = rng.next_float();
     float xi2 = rng.next_float();
     float cos_theta = std::pow(xi1, 1.0f / (e + 1.0f));
@@ -235,6 +235,26 @@ Ray Renderer::sample_glossy_ray(RNG& rng, const HitRecord& hit, const glm::vec3&
     Ray ray(hit.position + r * 0.00001f, hit.position + q*local_p2);
 
     return ray;
+}
+
+Ray Renderer::sample_ggx_ray(RNG& rng, const HitRecord& hit, glm::vec3 V, float roughness) const 
+{
+    float a = roughness * roughness;
+    float xi1 = rng.next_float();
+    float xi2 = rng.next_float();
+
+    float phi = 2.0f * std::numbers::pi_v<float> * xi1;
+    float cos_theta = std::sqrt((1.0f - xi2) / (1.0f + (a*a - 1.0f) * xi2));
+    float sin_theta = std::sqrt(1.0f - cos_theta*cos_theta);
+
+    glm::vec3 H_tangent(sin_theta * std::cos(phi), sin_theta * std::sin(phi), cos_theta);
+
+    glm::quat q = glm::rotation(glm::vec3(0.f, 0.f, 1.f), hit.normal);
+    glm::vec3 H = glm::normalize(q * H_tangent);
+
+    glm::vec3 L = glm::normalize(glm::reflect(-V, H));
+
+    return Ray(hit.position + hit.normal * 0.0001f, hit.position + L);
 }
 
 glm::vec3 Renderer::sample_triangle_point(RNG& rng, const Triangle& t) const

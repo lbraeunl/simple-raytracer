@@ -75,10 +75,24 @@ int BVH::build_BVH(int start, int end,  AABB parent_box, int nBuckets)
 
     float split_pos = cmin + extent * best_split/nBuckets;
 
-    std::partition(indices.begin() + start,indices.begin() + end,[&](int idx) {
-            return (*triangles)[idx].centroid[axis] < split_pos;
-        });
-    
+    // auto mid_iterator = std::partition(indices.begin() + start,indices.begin() + end,[&](int idx) {
+    //         return (*triangles)[idx].centroid[axis] < split_pos;
+    //     });
+
+    auto midIt = std::partition(indices.begin() + start, indices.begin() + end,
+    [&](int idx) {
+        float c = (*triangles)[idx].centroid[axis];
+        int b = nBuckets * (c - cmin) / extent;
+        if (b == nBuckets) b = nBuckets - 1;
+        return b < best_split;
+    });
+
+    mid = int(midIt - indices.begin());
+
+    if (mid == start || mid == end) {
+        mid = (start + end) / 2;
+    }
+
     nodes[nodeIndex].left = build_BVH(start, mid, best_left_box, nBuckets);
     nodes[nodeIndex].right = build_BVH(mid, end, best_right_box, nBuckets);
 
