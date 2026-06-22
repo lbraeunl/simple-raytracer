@@ -20,8 +20,9 @@ public:
     float gamma_ = 3;
     float m = 10;
 
-    int sample_count = 40;
-    int bounces = 1;
+    const int sample_count = 100;
+    const int bounces = 1;
+    const float diffuse_probability = 0.5f;
 
     Renderer(const Scene& scene_, const BVH& bvh_) : scene(scene_), bvh(bvh_) {}
 
@@ -35,5 +36,5 @@ private:
     glm::vec3 compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int depth) const;
 
     glm::vec3 sample_triangle_point(RNG& rng, const Triangle& t) const;
-    glm::vec3 next_event_estimation(RNG& rng, HitRecord& hit) const;
+    glm::vec3 next_event_estimation(RNG& rng, HitRecord& hit, const glm::vec3& wo) const;
 };

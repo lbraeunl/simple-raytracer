@@ -15,6 +15,7 @@ struct Material
     int specularTex = -1;
 
     glm::vec3 eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const;
+    float compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, float p_diffuse) const;
     glm::vec3 sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const;
     glm::vec3 diffuse_sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const;
 };

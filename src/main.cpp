@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <filesystem>
 #define GLM_ENABLE_EXPERIMENTAL
 #define STB_IMAGE_IMPLEMENTATION
 #include <chrono>
@@ -58,7 +59,16 @@ int main()
 
     auto window = sf::RenderWindow(sf::VideoMode({scene.camera.resolution.x, scene.camera.resolution.y}), "Raytracer");
     window.setFramerateLimit(60);
+
+    sf::Image image(sf::Vector2u(scene.camera.resolution.x, scene.camera.resolution.y), pixel_colors.data());
+    std::filesystem::path output = std::filesystem::path(PROJECT_ROOT) / "out/images/output.png";
     
+    if (!image.saveToFile(output))
+    {
+        throw std::runtime_error(
+            "Failed to save image to " + output.string()
+        );
+    }
 
     sf::Texture texture(sf::Vector2u(scene.camera.resolution.x, scene.camera.resolution.y));
     LOG(texture.update(generateHeatmap(heat_map.heatpixels).data()););

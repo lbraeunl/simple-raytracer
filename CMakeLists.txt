@@ -31,4 +31,6 @@ target_include_directories(main PRIVATE external/glm external/tinycolormap/inclu
 target_link_libraries(main PRIVATE SFML::Graphics tinyobjloader yaml-cpp)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
+target_compile_definitions(main PRIVATE
+    PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
+)

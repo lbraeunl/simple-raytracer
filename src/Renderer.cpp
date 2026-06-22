@@ -165,39 +165,53 @@ glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int dep
     if (radiance.x != 0.0f || radiance.y != 0.0f || radiance.z != 0.0f) return radiance;
     const Material& material = scene.materials[hit.triangle->mat_id];
     glm::vec3 n = hit.normal;
+    glm::vec3 wo = -ray.direction;
 
     for (int j=0; j < sample_count; j++)
     {
-        radiance += (1.0f/sample_count)*next_event_estimation(rng, hit);
+        radiance += (1.0f / sample_count) * next_event_estimation(rng, hit, wo);
 
         glm::vec3 wi;
-        float pdf;
-        //glm::vec3 brdf = material.sample(rng, -ray.direction, n, wi, pdf);
-        glm::vec3 brdf = material.diffuse_sample(rng,-ray.direction, n, wi, pdf);
+        float pdf_brdf;
+        glm::vec3 brdf = material.sample(rng, wo, n, wi, pdf_brdf);
 
-        if (pdf <= 0.0f) continue;
+        if (pdf_brdf <= 0.0f) continue;
 
         Ray secondary_ray(hit.position + n * 0.0001f, hit.position + wi);
         HitRecord secondary_hit = bvh.traverse_BVH(secondary_ray, INFINITY);
 
         if (secondary_hit.t == INFINITY)
             continue;
-        
+
+        float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
         glm::vec3 l_i = scene.materials[secondary_hit.triangle->mat_id].emissive;
+
+        if (l_i.x != 0.0f || l_i.y != 0.0f || l_i.z != 0.0f) {
+
+            float light_distance = secondary_hit.t;
+            float cos_light = std::max(glm::dot(secondary_hit.triangle->normal, -wi), 0.0f);
+            int light_count = scene.lighted_triangles.size();
+            float light_area = secondary_hit.triangle->area;
+
+            float pdf_light = 0.0f;
+            if (cos_light > 0.0f && light_area > 0.0f && light_count > 0) {
+                pdf_light = (light_distance * light_distance) / (cos_light * light_area * light_count);
+            }
+
+            float w_brdf = (pdf_brdf * pdf_brdf) / (pdf_brdf * pdf_brdf + pdf_light * pdf_light);
+
+            radiance += (1.0f / sample_count) * brdf * l_i * cos_theta / pdf_brdf * w_brdf;
+        }
 
         if (depth < bounces)
         {
-            l_i = compute_radiance(secondary_ray, secondary_hit, rng, depth+1);
+            glm::vec3 l_indirect = compute_radiance(secondary_ray, secondary_hit, rng, depth+1);
+            radiance += (1.0f / sample_count) * brdf * l_indirect * cos_theta / pdf_brdf;
         }
-
-        float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
-
-        radiance += (1.0f / sample_count) * brdf * l_i * cos_theta / pdf;
     }
 
     return radiance;
 }
-
 
 
 glm::vec3 Renderer::sample_triangle_point(RNG& rng, const Triangle& t) const
@@ -213,34 +227,44 @@ glm::vec3 Renderer::sample_triangle_point(RNG& rng, const Triangle& t) const
     return u * t.v[0] + v * t.v[1] + w * t.v[2];
 }
 
-glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit) const
+
+glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit, const glm::vec3& wo) const
 {
-    glm::vec3 l_i(0.f);
-    if (scene.lighted_triangles.empty()) return l_i;
+    glm::vec3 radiance(0.f);
+    if (scene.lighted_triangles.empty()) return radiance;
 
     int light_count = scene.lighted_triangles.size();
-    int n = int(rng.next_float()*light_count);
+    int n = int(rng.next_float() * light_count);
     size_t idx = scene.lighted_triangles[n];
     const Triangle& t = scene.triangles[idx];
 
     glm::vec3 light_pos = sample_triangle_point(rng, t);
 
-    Ray shadow_ray(hit.position + hit.normal*0.0001f, light_pos);
-    float light_distance = glm::distance(light_pos, hit.position+ hit.normal*0.001f);
+    Ray shadow_ray(hit.position + hit.normal * 0.0001f, light_pos);
+    float light_distance = glm::distance(light_pos, hit.position + hit.normal * 0.001f);
 
     HitRecord shadow_hit = bvh.traverse_BVH(shadow_ray, light_distance);
 
-    if(shadow_hit.t < light_distance) return l_i;
-    
+    if (shadow_hit.t < light_distance) return radiance;
+
     glm::vec3 l_e = scene.materials[t.mat_id].emissive;
-    glm::vec3 rho = scene.materials[hit.triangle->mat_id].albedo;
     glm::vec3 w_i = glm::normalize(light_pos - hit.position);
     float cos_surf = std::max(glm::dot(hit.normal, w_i), 0.0f);
     float cos_light = std::max(glm::dot(t.normal, -w_i), 0.0f);
 
-    l_i = l_e*rho/std::numbers::pi_v<float>*(cos_surf*cos_light)/(light_distance*light_distance)*(light_count * t.area);
-    return l_i;
+    if (cos_light <= 0.0f) return radiance;
+
+    float pdf_light = (light_distance * light_distance) / (cos_light * t.area * light_count);
+    const Material& material = scene.materials[hit.triangle->mat_id];
+    float pdf_brdf = material.compute_pdf(wo, w_i, hit.normal, diffuse_probability);
+    float w_light = (pdf_light * pdf_light) / (pdf_light * pdf_light + pdf_brdf * pdf_brdf);
+
+    glm::vec3 brdf = material.eval(wo, w_i, hit.normal);
+    radiance = l_e * brdf * cos_surf / pdf_light * w_light;
+
+    return radiance;
 }
+
 
 glm::vec3 Renderer::stochastic_trace(int px, int py) const
 {

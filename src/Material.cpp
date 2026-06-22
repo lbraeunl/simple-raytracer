@@ -7,8 +7,64 @@
 
 glm::vec3 Material::eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const
 {
-    return albedo / std::numbers::pi_v<float>;
+    float NdotL = std::max(glm::dot(normal, wi), 0.0f);
+    float NdotV = std::max(glm::dot(normal, wo), 0.0f);
+    
+    if (NdotL <= 0.0f || NdotV <= 0.0f) {
+        return glm::vec3(0.0f);
+    }
+
+    glm::vec3 H = glm::normalize(wo + wi);
+    float VdotH = std::max(glm::dot(wo, H), 0.0f);
+
+    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+    glm::vec3 F = BRDF::schlick_fresnel(VdotH, F0);
+
+    float D = BRDF::ggx_distribution(normal, H, roughness);
+    float G = BRDF::smith_geometry(normal, wo, wi, roughness);
+
+    glm::vec3 specular = (D * G * F) / (4.0f * NdotV * NdotL);
+
+    glm::vec3 kD = (glm::vec3(1.0f) - F) * (1.0f - metallic);
+    glm::vec3 diffuse = kD * albedo / std::numbers::pi_v<float>;
+
+    return diffuse + specular;
 }
+
+
+glm::vec3 Material::sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const
+{
+    float probability_diffuse = 0.5f;
+
+    if (rng.next_float() < probability_diffuse) {
+        wi = BRDF::sample_cosine_weighted(rng, normal);
+    } else {
+        wi = BRDF::sample_ggx(rng, normal, wo, roughness);
+    }
+
+    pdf = compute_pdf(wo, wi, normal, probability_diffuse);
+
+    return eval(wo, wi, normal);
+}
+
+float Material::compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, float p_diffuse) const
+{
+    float NdotL = std::max(glm::dot(normal, wi), 0.0f);
+
+    glm::vec3 H = glm::normalize(wo + wi);
+    float NdotH = std::max(glm::dot(normal, H), 0.0f);
+    float VdotH = std::max(glm::dot(wo, H), 0.0f);
+
+    float pdf_diffuse = NdotL / std::numbers::pi_v<float>;
+    float pdf_specular = 0.0f;
+    if (VdotH > 0.0f) {
+        float D = BRDF::ggx_distribution(normal, H, roughness);
+        pdf_specular = (D * NdotH) / (4.0f * VdotH);
+    }
+
+    return p_diffuse * pdf_diffuse + (1.0f - p_diffuse) * pdf_specular;
+}
+
 
 glm::vec3 Material::diffuse_sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const
 {
@@ -18,22 +74,6 @@ glm::vec3 Material::diffuse_sample(RNG& rng, const glm::vec3& wo, const glm::vec
     pdf = cos_theta / std::numbers::pi_v<float>;
 
     return albedo / std::numbers::pi_v<float>;
-}
-
-glm::vec3 Material::sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const
-{
-    glm::vec3 r = -glm::reflect(wo, normal);
-    
-    wi = BRDF::sample_glossy(rng, r, roughness);
-
-    float cos_theta = glm::max(glm::dot(normal, wi), 0.0f);
-    float phong_cos = glm::max(glm::dot(r, wi), 0.0f);
-
-    pdf = ((roughness + 1.0f) / (2.0f * std::numbers::pi_v<float>)) * std::pow(phong_cos, roughness);
-
-    glm::vec3 brdf = albedo * ((roughness + 2.0f) / (2.0f * std::numbers::pi_v<float>)) * std::pow(phong_cos, roughness);
-
-    return brdf;
 }
 
 namespace BRDF {
