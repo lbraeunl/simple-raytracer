@@ -2,7 +2,8 @@
 #include <iostream>
 #include <filesystem>
 #define GLM_ENABLE_EXPERIMENTAL
-#define STB_IMAGE_IMPLEMENTATION
+#define TINYGLTF_IMPLEMENTATION
+#include <tiny_gltf.h>
 #include <chrono>
 #include "Geometry.hpp"
 #include "Model.hpp"
@@ -60,9 +61,25 @@ int main()
     auto window = sf::RenderWindow(sf::VideoMode({scene.camera.resolution.x, scene.camera.resolution.y}), "Raytracer");
     window.setFramerateLimit(60);
 
+    std::filesystem::path dir = std::filesystem::path(PROJECT_ROOT) / "out/images";
+
+    const std::string prefix = "output_";
+    const std::string suffix = ".png";
+    int max_index = 0;
+
+    for (const auto& entry : std::filesystem::directory_iterator(dir))
+    {
+        auto name = entry.path().filename().string();
+
+        if (name.starts_with(prefix) && name.ends_with(suffix))
+        {
+            auto number = name.substr(prefix.size(),name.size() - prefix.size() - suffix.size());
+            max_index = std::max(max_index, std::stoi(number));
+        }
+    }
+
     sf::Image image(sf::Vector2u(scene.camera.resolution.x, scene.camera.resolution.y), pixel_colors.data());
-    std::filesystem::path output = std::filesystem::path(PROJECT_ROOT) / "out/images/output.png";
-    
+    std::filesystem::path output = dir / ("output_" + std::to_string(max_index + 1) + ".png");
     if (!image.saveToFile(output))
     {
         throw std::runtime_error(

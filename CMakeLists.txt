@@ -25,7 +25,7 @@ add_subdirectory(external/yaml-cpp)
 add_executable(main src/main.cpp src/utils.hpp src/Geometry.cpp src/Model.cpp src/Model.hpp src/Scene.cpp src/Scene.hpp src/BVH.hpp src/BVH.cpp src/Renderer.hpp src/Renderer.cpp src/Material.hpp src/Material.cpp src/Postprocessing.hpp src/Postprocessing.cpp src/logger.hpp)
 target_compile_features(main PRIVATE cxx_std_17)
 
-target_include_directories(main PRIVATE external/glm external/tinycolormap/include external/stb)
+target_include_directories(main PRIVATE external/glm external/tinycolormap/include external/stb external/tinygltf)
 
 # Link libraries
 target_link_libraries(main PRIVATE SFML::Graphics tinyobjloader yaml-cpp)
