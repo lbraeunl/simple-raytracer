@@ -2,31 +2,101 @@
 #include "stb_image.h"
 #include <tiny_gltf.h>
 #include <yaml-cpp/yaml.h>
+#include <array>
+#include <memory>
+#include <cmath>
 
 
+// Exact sRGB EOTF (IEC 61966-2-1), precomputed for all 8-bit values.
+static float srgb8_to_linear(unsigned char c)
+{
+    static const std::array<float, 256> lut = [] {
+        std::array<float, 256> t{};
+        for (int i = 0; i < 256; ++i) {
+            float s = i / 255.0f;
+            t[i] = (s <= 0.04045f) ? s / 12.92f : std::pow((s + 0.055f) / 1.055f, 2.4f);
+        }
+        return t;
+    }();
+    return lut[c];
+}
+
+static int wrap_repeat(int i, int n)
+{
+    int r = i % n;
+    return r < 0 ? r + n : r;
+}
+
+
+Texture::Texture() {}
 
 Texture::Texture(std::string filename)
 {
-    data = stbi_loadf(filename.c_str(), &width, &height, &channels, 3);
+    int file_channels = 0;
+    unsigned char* pixels = stbi_load(filename.c_str(), &width, &height, &file_channels, 3);
+    if (!pixels) {
+        std::cerr << "ERR: could not load texture " << filename << std::endl;
+        width = height = 0;
+        return;
+    }
+    load_srgb8(width, height, 3, pixels);
+    stbi_image_free(pixels);
 }
 
 Texture::Texture(int w, int h, int c, const unsigned char* in_data)
 {
+    load_srgb8(w, h, c, in_data);
+}
+
+void Texture::load_srgb8(int w, int h, int c, const unsigned char* in_data)
+{
     width = w;
     height = h;
-    channels = c;
-    data = new float[width * height * 3];
-    // if c == 4 or 3, we just extract RGB. Wait, tinygltf images are typically 4 channels (RGBA) or 3 (RGB).
+    std::shared_ptr<float[]> pixels(new float[width * height * channels]);
+    
     for (int i = 0; i < width * height; ++i) {
-        data[i * 3 + 0] = in_data[i * c + 0] / 255.0f;
-        data[i * 3 + 1] = in_data[i * c + 1] / 255.0f;
-        data[i * 3 + 2] = in_data[i * c + 2] / 255.0f;
+        const unsigned char* px = in_data + i * c;
+        unsigned char r = px[0];
+        unsigned char g = (c >= 3) ? px[1] : px[0];
+        unsigned char b = (c >= 3) ? px[2] : px[0];
+
+        pixels[i * channels + 0] = srgb8_to_linear(r);
+        pixels[i * channels + 1] = srgb8_to_linear(g);
+        pixels[i * channels + 2] = srgb8_to_linear(b);
     }
+    data = std::move(pixels);
+}
+
+glm::vec3 Texture::sample(glm::vec2 uv) const
+{
+    if (!data || width <= 0 || height <= 0)
+        return glm::vec3(1.0f);
+
+    float x = uv.x * width  - 0.5f;
+    float y = uv.y * height - 0.5f;
+    float fx = std::floor(x);
+    float fy = std::floor(y);
+    float tx = x - fx;
+    float ty = y - fy;
+
+    int x0 = wrap_repeat(int(fx), width);
+    int y0 = wrap_repeat(int(fy), height);
+    int x1 = wrap_repeat(x0 + 1, width);
+    int y1 = wrap_repeat(y0 + 1, height);
+
+    auto texel = [&](int xi, int yi) {
+        const float* p = data.get() + (yi * width + xi) * channels;
+        return glm::vec3(p[0], p[1], p[2]);
+    };
+
+    glm::vec3 top    = glm::mix(texel(x0, y0), texel(x1, y0), tx);
+    glm::vec3 bottom = glm::mix(texel(x0, y1), texel(x1, y1), tx);
+    return glm::mix(top, bottom, ty);
 }
 
 Model::Model(std::string filename, std::string directory)
 {
-    load_object_from_file_legacy(filename, directory);
+    load_object_from_file(filename, directory);
 }
 
 int Model::load_texture(const tinygltf::Image& image) 

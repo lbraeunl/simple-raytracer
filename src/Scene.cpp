@@ -83,9 +83,11 @@ std::vector<Ray> Camera::generate_rays() const
 }
 
 
-Ray Camera::generate_ray(int px, int py) const
-{
-    glm::vec3 image_pos = image_plane.origin + (px/float(resolution.x))*image_plane.w + (1.0f - py/float(resolution.y))*image_plane.h;
+Ray Camera::generate_ray(float px, float py) const
+{   
+    float u = (px + 0.5f)/float(resolution.x);
+    float v = 1.0f - (py + 0.5f)/float(resolution.y);
+    glm::vec3 image_pos = image_plane.origin + u*image_plane.w + v*image_plane.h;
     return Ray(position, image_pos);
 }
 

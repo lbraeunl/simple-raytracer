@@ -36,7 +36,7 @@ struct Camera {
     Camera(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up, float fov, int width_pixels, int height_pixels);
 
     std::vector<Ray> generate_rays() const;
-    Ray generate_ray(int px, int py) const;
+    Ray generate_ray(float px, float py) const;
 
 
 private: 

@@ -10,13 +10,15 @@ struct Material
     float roughness = 0.5f;
     float ior = 1.0f;
 
+    const float p_diffuse = 0.5f;
+
     int ambientTex = -1;
     int diffuseTex = -1;
     int specularTex = -1;
 
-    glm::vec3 eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const;
-    float compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, float p_diffuse) const;
-    glm::vec3 sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const;
+    glm::vec3 eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, const glm::vec3& base_color) const;
+    float compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const;
+    glm::vec3 sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, const glm::vec3& base_color, glm::vec3& wi, float& pdf) const;
     glm::vec3 diffuse_sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const;
 };
 

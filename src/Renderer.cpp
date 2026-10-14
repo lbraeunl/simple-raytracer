@@ -79,29 +79,16 @@ std::vector<glm::vec3> Renderer::render()
 }
 
 
-glm::vec3 Renderer::get_material_color(HitRecord& hit) const
+glm::vec3 Renderer::get_material_color(const HitRecord& hit) const
 {
-    int tex_id = scene.materials[hit.triangle->mat_id].diffuseTex;
-    if(tex_id >=0)
-    {   
-        float w = 1.0f - hit.u - hit.v;
-        glm::vec2 uv_values = w * hit.triangle->uv[0] + hit.u * hit.triangle->uv[1] + hit.v * hit.triangle->uv[2];
-        const Texture& tex = scene.textures[tex_id];
+    const Material& material = scene.materials[hit.triangle->mat_id];
+    if (material.diffuseTex < 0)
+        return material.albedo;
 
-        float u = uv_values.x - std::floor(uv_values.x);
-        float v = uv_values.y - std::floor(uv_values.y);
+    float w = 1.0f - hit.u - hit.v;
+    glm::vec2 uv = w * hit.triangle->uv[0] + hit.u * hit.triangle->uv[1] + hit.v * hit.triangle->uv[2];
 
-        int x = int(u * (tex.width - 1));
-        int y = int((v) * (tex.height - 1));
-
-        int tex_idx = (y * tex.width + x) * tex.channels;
-
-        return {tex.data[tex_idx + 0],tex.data[tex_idx + 1],tex.data[tex_idx + 2]};
-    }
-    else
-    {
-        return scene.materials[hit.triangle->mat_id].albedo;
-    }
+    return material.albedo * scene.textures[material.diffuseTex].sample(uv);
 }
 
 
@@ -159,55 +146,73 @@ glm::vec3 Renderer::trace(int px, int py) const
 }
 
 
-glm::vec3 Renderer::compute_radiance(Ray& ray, HitRecord& hit, RNG& rng, int depth) const
+glm::vec3 Renderer::compute_radiance(Ray ray, HitRecord hit, RNG& rng) const
 {
-    glm::vec3 radiance = scene.materials[hit.triangle->mat_id].emissive;
-    if (radiance.x != 0.0f || radiance.y != 0.0f || radiance.z != 0.0f) return radiance;
-    const Material& material = scene.materials[hit.triangle->mat_id];
-    glm::vec3 n = hit.normal;
-    glm::vec3 wo = -ray.direction;
+    glm::vec3 radiance(0.0f);
+    glm::vec3 throughput(1.0f);
+    float prev_pdf_brdf = 1.0f;
+    bool is_specular_bounce = true;
 
-    for (int j=0; j < sample_count; j++)
+    for (int depth = 0; depth <= bounces; depth++)
     {
-        radiance += (1.0f / sample_count) * next_event_estimation(rng, hit, wo);
+        glm::vec3 emission = scene.materials[hit.triangle->mat_id].emissive;
+        if (emission.x != 0.0f || emission.y != 0.0f || emission.z != 0.0f) {
+            if (!hit.back_face) {
+                if (is_specular_bounce) {
+                    radiance += throughput * emission;
+                } else {
+                    float light_distance = hit.t;
+                    float cos_light = std::max(glm::dot(hit.triangle->normal, -ray.direction), 0.0f);
+                    int light_count = scene.lighted_triangles.size();
+                    float light_area = hit.triangle->area;
+
+                    float pdf_light = 0.0f;
+                    if (light_area > 0.0f && light_count > 0) {
+                        pdf_light = (light_distance * light_distance) / (cos_light * light_area * light_count);
+                    }
+
+                    float w_brdf = 1.0f;
+                    if (pdf_light > 0.0f) {
+                        w_brdf = (prev_pdf_brdf * prev_pdf_brdf) / (prev_pdf_brdf * prev_pdf_brdf + pdf_light * pdf_light);
+                    }
+                    radiance += throughput * emission * w_brdf;
+                }
+            }
+            break;
+        }
+
+        if (depth == bounces) break;
+
+        glm::vec3 wo = -ray.direction;
+        glm::vec3 base_color = get_material_color(hit);
+        radiance += throughput * next_event_estimation(rng, hit, wo, base_color);
 
         glm::vec3 wi;
         float pdf_brdf;
-        glm::vec3 brdf = material.sample(rng, wo, n, wi, pdf_brdf);
+        const Material& material = scene.materials[hit.triangle->mat_id];
+        glm::vec3 brdf = material.sample(rng, wo, hit.normal, base_color, wi, pdf_brdf);
 
-        if (pdf_brdf <= 0.0f) continue;
+        if (pdf_brdf <= 0.0f) break;
 
-        Ray secondary_ray(hit.position + n * 0.0001f, hit.position + wi);
-        HitRecord secondary_hit = bvh.traverse_BVH(secondary_ray, INFINITY);
+        float cos_theta = glm::max(glm::dot(hit.normal, wi), 0.0f);
+        
+        throughput *= brdf * cos_theta / pdf_brdf;
+        prev_pdf_brdf = pdf_brdf;
+        is_specular_bounce = false;
 
-        if (secondary_hit.t == INFINITY)
-            continue;
-
-        float cos_theta = glm::max(glm::dot(n, wi), 0.0f);
-        glm::vec3 l_i = scene.materials[secondary_hit.triangle->mat_id].emissive;
-
-        if (l_i.x != 0.0f || l_i.y != 0.0f || l_i.z != 0.0f) {
-
-            float light_distance = secondary_hit.t;
-            float cos_light = std::max(glm::dot(secondary_hit.triangle->normal, -wi), 0.0f);
-            int light_count = scene.lighted_triangles.size();
-            float light_area = secondary_hit.triangle->area;
-
-            float pdf_light = 0.0f;
-            if (cos_light > 0.0f && light_area > 0.0f && light_count > 0) {
-                pdf_light = (light_distance * light_distance) / (cos_light * light_area * light_count);
+        float max_throughput = std::max({throughput.x, throughput.y, throughput.z});
+        if (depth > 2) {
+            float survival_prob = std::min(1.0f, max_throughput);
+            if (rng.next_float() > survival_prob) {
+                break;
             }
-
-            float w_brdf = (pdf_brdf * pdf_brdf) / (pdf_brdf * pdf_brdf + pdf_light * pdf_light);
-
-            radiance += (1.0f / sample_count) * brdf * l_i * cos_theta / pdf_brdf * w_brdf;
+            throughput /= survival_prob;
         }
 
-        if (depth < bounces)
-        {
-            glm::vec3 l_indirect = compute_radiance(secondary_ray, secondary_hit, rng, depth+1);
-            radiance += (1.0f / sample_count) * brdf * l_indirect * cos_theta / pdf_brdf;
-        }
+        ray = Ray(hit.position + hit.normal * 0.0001f, hit.position + wi);
+        hit = bvh.traverse_BVH(ray, INFINITY);
+
+        if (hit.t == INFINITY) break;
     }
 
     return radiance;
@@ -228,7 +233,7 @@ glm::vec3 Renderer::sample_triangle_point(RNG& rng, const Triangle& t) const
 }
 
 
-glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit, const glm::vec3& wo) const
+glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit, const glm::vec3& wo, const glm::vec3& base_color) const
 {
     glm::vec3 radiance(0.f);
     if (scene.lighted_triangles.empty()) return radiance;
@@ -256,10 +261,10 @@ glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit, const glm::v
 
     float pdf_light = (light_distance * light_distance) / (cos_light * t.area * light_count);
     const Material& material = scene.materials[hit.triangle->mat_id];
-    float pdf_brdf = material.compute_pdf(wo, w_i, hit.normal, diffuse_probability);
+    float pdf_brdf = material.compute_pdf(wo, w_i, hit.normal);
     float w_light = (pdf_light * pdf_light) / (pdf_light * pdf_light + pdf_brdf * pdf_brdf);
 
-    glm::vec3 brdf = material.eval(wo, w_i, hit.normal);
+    glm::vec3 brdf = material.eval(wo, w_i, hit.normal, base_color);
     radiance = l_e * brdf * cos_surf / pdf_light * w_light;
 
     return radiance;
@@ -268,16 +273,20 @@ glm::vec3 Renderer::next_event_estimation(RNG& rng, HitRecord& hit, const glm::v
 
 glm::vec3 Renderer::stochastic_trace(int px, int py) const
 {
-    Ray ray = scene.camera.generate_ray(px, py);
-
-    HitRecord hit = bvh.traverse_BVH(ray, INFINITY);
-
-    if (hit.t == INFINITY)
-        return glm::vec3(0.0f);
-
+    glm::vec3 total_radiance(0.0f);
     thread_local RNG rng(((px * 1597334677U) ^ (py * 3812015801U))+1);
 
-    glm::vec3 radiance = compute_radiance(ray, hit, rng, 1);
+    for (int i = 0; i < sample_count; i++) {
+        float jx = px;//+ rng.next_float();
+        float jy = py; //+ rng.next_float();
+        Ray ray = scene.camera.generate_ray(jx, jy);
 
-    return radiance;
+        HitRecord hit = bvh.traverse_BVH(ray, INFINITY);
+
+        if (hit.t != INFINITY) {
+            total_radiance += compute_radiance(ray, hit, rng);
+        }
+    }
+
+    return total_radiance / float(sample_count);
 }

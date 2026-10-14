@@ -86,7 +86,7 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     glm::vec3 h = glm::cross(ray.direction, e[1]);
     float a = glm::dot(e[0], h);
 
-    if (a < EPSILON)
+    if (std::fabs(a) < EPSILON)
         return false;
 
     float f = 1.0f / a;
@@ -110,6 +110,10 @@ bool Triangle::triangle_intersect(const Ray& ray, HitRecord& hit) const
     hit.triangle = this;
     hit.position = ray.at(hit.t);
     hit.normal = interpolate_normal(hit.u, hit.v);
+    hit.back_face = a < 0.0f;
+    if (hit.back_face)
+        hit.normal = -hit.normal;
+    
     return true;
 }
 

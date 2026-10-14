@@ -5,7 +5,7 @@
 #include <numbers>
 #include <algorithm>
 
-glm::vec3 Material::eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const
+glm::vec3 Material::eval(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, const glm::vec3& base_color) const
 {
     float NdotL = std::max(glm::dot(normal, wi), 0.0f);
     float NdotV = std::max(glm::dot(normal, wo), 0.0f);
@@ -17,7 +17,7 @@ glm::vec3 Material::eval(const glm::vec3& wo, const glm::vec3& wi, const glm::ve
     glm::vec3 H = glm::normalize(wo + wi);
     float VdotH = std::max(glm::dot(wo, H), 0.0f);
 
-    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), albedo, metallic);
+    glm::vec3 F0 = glm::mix(glm::vec3(0.04f), base_color, metallic);
     glm::vec3 F = BRDF::schlick_fresnel(VdotH, F0);
 
     float D = BRDF::ggx_distribution(normal, H, roughness);
@@ -26,28 +26,27 @@ glm::vec3 Material::eval(const glm::vec3& wo, const glm::vec3& wi, const glm::ve
     glm::vec3 specular = (D * G * F) / (4.0f * NdotV * NdotL);
 
     glm::vec3 kD = (glm::vec3(1.0f) - F) * (1.0f - metallic);
-    glm::vec3 diffuse = kD * albedo / std::numbers::pi_v<float>;
+    glm::vec3 diffuse = kD * base_color / std::numbers::pi_v<float>;
 
     return diffuse + specular;
 }
 
 
-glm::vec3 Material::sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, glm::vec3& wi, float& pdf) const
+glm::vec3 Material::sample(RNG& rng, const glm::vec3& wo, const glm::vec3& normal, const glm::vec3& base_color, glm::vec3& wi, float& pdf) const
 {
-    float probability_diffuse = 0.5f;
-
-    if (rng.next_float() < probability_diffuse) {
+    if (rng.next_float() < p_diffuse) {
         wi = BRDF::sample_cosine_weighted(rng, normal);
     } else {
         wi = BRDF::sample_ggx(rng, normal, wo, roughness);
     }
 
-    pdf = compute_pdf(wo, wi, normal, probability_diffuse);
+    pdf = compute_pdf(wo, wi, normal);
 
-    return eval(wo, wi, normal);
+    return eval(wo, wi, normal, base_color);
 }
 
-float Material::compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal, float p_diffuse) const
+
+float Material::compute_pdf(const glm::vec3& wo, const glm::vec3& wi, const glm::vec3& normal) const
 {
     float NdotL = std::max(glm::dot(normal, wi), 0.0f);
 
@@ -75,6 +74,7 @@ glm::vec3 Material::diffuse_sample(RNG& rng, const glm::vec3& wo, const glm::vec
 
     return albedo / std::numbers::pi_v<float>;
 }
+
 
 namespace BRDF {
 
@@ -104,6 +104,7 @@ glm::vec3 schlick_fresnel(float cos_theta, glm::vec3 F0) {
     return F0 + (1.0f - F0) * std::pow(std::clamp(1.0f - cos_theta, 0.0f, 1.0f), 5.0f);
 }
 
+
 glm::vec3 sample_cosine_weighted(RNG& rng, const glm::vec3& normal) {
     float xi1 = rng.next_float();
     float xi2 = rng.next_float();
@@ -115,6 +116,7 @@ glm::vec3 sample_cosine_weighted(RNG& rng, const glm::vec3& normal) {
 
     return glm::normalize(q * local_p2);
 }
+
 
 glm::vec3 sample_glossy(RNG& rng, const glm::vec3& r, float e) {
     float xi1 = rng.next_float();
@@ -128,6 +130,7 @@ glm::vec3 sample_glossy(RNG& rng, const glm::vec3& r, float e) {
 
     return glm::normalize(q * local_p2);
 }
+
 
 glm::vec3 sample_ggx(RNG& rng, const glm::vec3& normal, glm::vec3 V, float roughness) {
     float a = roughness * roughness;
@@ -145,5 +148,6 @@ glm::vec3 sample_ggx(RNG& rng, const glm::vec3& normal, glm::vec3 V, float rough
 
     return glm::normalize(glm::reflect(-V, H));
 }
+
 
 } // namespace BRDF

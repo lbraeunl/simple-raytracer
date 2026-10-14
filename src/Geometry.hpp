@@ -10,6 +10,7 @@ struct HitRecord {
     float u,v;
     glm::vec3 position;
     glm::vec3 normal;
+    bool back_face = false;
     const Triangle* triangle;  //refactor to only contain information and not whole triangle
 
     HitRecord();

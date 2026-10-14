@@ -53,7 +53,7 @@ int main()
     /* ================= POST-PROCESSING ================= */
 
     std::cout << "[INFO] Applying tone mapping..." << std::endl;
-    auto pixel_colors = tone_mapping(pixel_values, 2.2);
+    auto pixel_colors = tone_mapping(pixel_values);
     
     std::cout << "[INFO] Pipeline finished successfully!" << std::endl;
     LOG(std::cout << "Total Intersection Tests:" << INT_COUNT/2100000 << std::endl;);
